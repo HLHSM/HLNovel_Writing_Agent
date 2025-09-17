@@ -34,7 +34,7 @@ def load_config():
         raise ValueError(f"配置文件格式错误: {e}")
     
     # 验证必需的配置项
-    required_keys = ['llm_config', 'instructions', 'app_config']
+    required_keys = ['llm_config', 'app_config']
     for key in required_keys:
         if key not in config:
             raise KeyError(f"配置文件缺少必需项: {key}")
@@ -56,15 +56,46 @@ def load_config():
     
     return config
 
+def load_prompts():
+    """从prompts文件夹加载提示词"""
+    prompts_dir = os.path.join(os.path.dirname(__file__), 'prompts')
+    
+    # 检查prompts文件夹是否存在
+    if not os.path.exists(prompts_dir):
+        raise FileNotFoundError(f"prompts文件夹 {prompts_dir} 不存在")
+    
+    # 读取总结提示词
+    summary_file = os.path.join(prompts_dir, 'summary_instruction.txt')
+    if not os.path.exists(summary_file):
+        raise FileNotFoundError(f"总结提示词文件 {summary_file} 不存在")
+    
+    with open(summary_file, 'r', encoding='utf-8') as f:
+        summary_instruction = f.read().strip()
+    
+    # 读取写作提示词
+    writing_file = os.path.join(prompts_dir, 'writing_instruction.txt')
+    if not os.path.exists(writing_file):
+        raise FileNotFoundError(f"写作提示词文件 {writing_file} 不存在")
+    
+    with open(writing_file, 'r', encoding='utf-8') as f:
+        writing_instruction = f.read().strip()
+    
+    return {
+        'summary_instruction': summary_instruction,
+        'writing_instruction': writing_instruction
+    }
+
 
 
 # 加载配置
 try:
     config = load_config()
+    prompts = load_prompts()
+    
     summary_llm_cfg = config['llm_config']['summary_bot']
     writing_llm_cfg = config['llm_config']['writing_bot']
-    summary_instruction = config['instructions']['summary_instruction']
-    writing_instruction = config['instructions']['writing_instruction']
+    summary_instruction = prompts['summary_instruction']
+    writing_instruction = prompts['writing_instruction']
     app_config = config['app_config']
     
     print(f"✓ 配置加载成功")
@@ -72,9 +103,10 @@ try:
     print(f"  写作模型: {writing_llm_cfg['model']} (top_p: {writing_llm_cfg['generate_cfg']['top_p']})")
     print(f"  服务器: {summary_llm_cfg['model_server']}")
     print(f"  文本长度阈值: {app_config['text_length_threshold']}")
+    print(f"  提示词加载: 总结指令({len(summary_instruction)}字) + 写作指令({len(writing_instruction)}字)")
 except Exception as e:
     print(f"❌ 配置加载失败: {e}")
-    print("请确保 config.json 文件存在且格式正确")
+    print("请确保 config.json 文件和 prompts/ 文件夹存在且格式正确")
     exit(1)
 
 # 创建智能体
