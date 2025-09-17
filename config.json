@@ -2,8 +2,8 @@
   "llm_config": {
     "summary_bot": {
       "model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
-      "model_server": "https://api.siliconflow.cn/v1",
-      "api_key": "sk-mulvzmzmimabqzspnuizhkxckaztktcfbsbarxmkupbovfrl",
+      "model_server": "",
+      "api_key": "",
       "generate_cfg": {
         "top_p": 0.9,
         "temperature": 0.3,
@@ -12,8 +12,8 @@
     },
     "writing_bot": {
       "model": "deepseek/deepseek-chat-v3.1:free",
-      "model_server": "https://openrouter.ai/api/v1",
-      "api_key": "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",
+      "model_server": "",
+      "api_key": "",
       "generate_cfg": {
         "top_p": 0.8,
         "temperature": 0.7,
