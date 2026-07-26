@@ -453,6 +453,106 @@
             text-align: center;
         }
 
+        .chapter-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 16px;
+            padding: 8px;
+            background: var(--surface-secondary);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+        }
+
+        .chapter-select {
+            min-width: 0;
+            flex: 1;
+            height: 38px;
+            padding: 0 10px;
+            color: var(--text);
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 9px;
+        }
+
+        .chapter-editor {
+            overflow: hidden;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, .03);
+        }
+
+        .chapter-editor-head {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 18px 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .chapter-title-input {
+            min-width: 0;
+            flex: 1;
+            padding: 4px 0;
+            color: var(--text);
+            background: transparent;
+            border: 0;
+            font-size: 18px;
+            font-weight: 650;
+        }
+
+        .chapter-title-input:focus {
+            outline: 0;
+        }
+
+        .chapter-meta {
+            flex: 0 0 auto;
+            color: var(--text-secondary);
+            font-size: 12px;
+        }
+
+        .chapter-content-input {
+            display: block;
+            width: 100%;
+            min-height: 48vh;
+            padding: 24px 26px;
+            color: var(--text);
+            background: transparent;
+            border: 0;
+            font-family: "Noto Serif SC", "Songti SC", "STSong", serif;
+            font-size: 16px;
+            line-height: 1.95;
+            resize: vertical;
+        }
+
+        .chapter-content-input:focus {
+            outline: 0;
+        }
+
+        .chapter-content-input.generating {
+            background: var(--surface-secondary);
+        }
+
+        .chapter-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 14px;
+            border-top: 1px solid var(--border);
+        }
+
+        .chapter-action-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .chapter-analysis {
+            padding: 0 18px 14px;
+        }
+
         .message {
             display: grid;
             grid-template-columns: 30px minmax(0, 1fr);
@@ -566,7 +666,7 @@
         }
 
         .version-history {
-            margin: 18px 0 30px 44px;
+            margin: 18px 0 30px;
             border-top: 1px solid var(--border);
         }
 
@@ -792,6 +892,34 @@
                 padding: 10px 16px 145px;
             }
 
+            .chapter-toolbar {
+                margin-top: 4px;
+            }
+
+            .chapter-editor-head {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+
+            .chapter-title-input {
+                width: 100%;
+            }
+
+            .chapter-content-input {
+                min-height: 54vh;
+                padding: 18px;
+                font-size: 15px;
+            }
+
+            .chapter-actions {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .chapter-action-group {
+                justify-content: space-between;
+            }
+
             .message {
                 grid-template-columns: 26px minmax(0, 1fr);
                 gap: 10px;
@@ -808,10 +936,6 @@
 
             .message-tools {
                 opacity: 1;
-            }
-
-            .version-history {
-                margin-left: 36px;
             }
 
             .composer-area {
@@ -935,9 +1059,41 @@
                 </section>
 
                 <section class="thread-view" id="thread-view" hidden>
-                    <div id="thread"></div>
+                    <div class="chapter-toolbar">
+                        <label class="sr-only" for="chapter-select">当前章节</label>
+                        <select class="chapter-select" id="chapter-select"
+                                onchange="selectChapter(this.value)"></select>
+                        <button class="tool-button" id="new-chapter-btn" type="button"
+                                onclick="createChapter()">＋ 新建章节</button>
+                    </div>
+
+                    <article class="chapter-editor" id="chapter-editor">
+                        <div class="chapter-editor-head">
+                            <input class="chapter-title-input" id="chapter-title"
+                                   maxlength="120" aria-label="章节标题">
+                            <span class="chapter-meta" id="chapter-meta"></span>
+                        </div>
+                        <textarea class="chapter-content-input" id="chapter-content"
+                                  aria-label="章节正文"
+                                  placeholder="在这里编辑章节正文，保存时会自动创建新版本。"></textarea>
+                        <div class="chapter-actions">
+                            <div class="chapter-action-group">
+                                <button class="tool-button" id="copy-chapter-btn" type="button"
+                                        onclick="copyCurrentChapter()">⧉ 复制</button>
+                                <button class="tool-button danger" id="delete-chapter-btn" type="button"
+                                        onclick="deleteCurrentChapter()">删除章节</button>
+                            </div>
+                            <div class="chapter-action-group">
+                                <button class="tool-button" id="generate-chapter-btn" type="button"
+                                        onclick="restartWriting()">AI 重写本章</button>
+                                <button class="primary-button" id="save-chapter-btn" type="button"
+                                        onclick="saveCurrentChapter()">保存新版本</button>
+                            </div>
+                        </div>
+                        <div class="chapter-analysis" id="chapter-analysis"></div>
+                    </article>
                     <details class="version-history" id="version-history" hidden>
-                        <summary>版本历史</summary>
+                        <summary>本章版本历史</summary>
                         <div id="version-list"></div>
                     </details>
                 </section>
@@ -958,16 +1114,16 @@
                             <input class="compact-input" id="composer-word-limit" type="number"
                                    value="1000" min="100" max="10000" aria-label="目标字数">
                             <button class="tool-button" id="regenerate-btn" type="button" onclick="restartWriting()">
-                                重新生成
+                                重写本章
                             </button>
                         </div>
                         <button class="send-button" id="continue-btn" type="button"
-                                onclick="continueWriting()" aria-label="继续续写">
+                                onclick="continueWriting()" aria-label="生成下一章">
                             ↑
                         </button>
                     </div>
                 </div>
-                <div class="composer-note">Ctrl / ⌘ + Enter 发送 · 生成内容请结合原文人工审阅</div>
+                <div class="composer-note">Ctrl / ⌘ + Enter 生成下一章 · 编辑后保存会创建独立版本</div>
             </footer>
         </section>
     </div>
@@ -975,25 +1131,26 @@
     <script>
         let currentProjectId = null;
         let currentProject = null;
+        let currentChapterId = null;
+        let editorBaseline = "";
         let eventSource = null;
-        let liveMessage = null;
         let streamCompleted = false;
         let busy = false;
         let toastTimer = null;
 
         const $ = id => document.getElementById(id);
 
-        function icon(name) {
-            const icons = {
-                copy: "⧉",
-                regenerate: "↻"
-            };
-            return icons[name] || "";
-        }
-
         function setBusy(value) {
             busy = value;
-            ["start-btn", "continue-btn", "regenerate-btn", "delete-btn"].forEach(id => {
+            [
+                "start-btn", "continue-btn", "regenerate-btn", "delete-btn",
+                "new-chapter-btn", "save-chapter-btn", "generate-chapter-btn",
+                "delete-chapter-btn"
+            ].forEach(id => {
+                const element = $(id);
+                if (element) element.disabled = value;
+            });
+            ["chapter-select", "chapter-title", "chapter-content"].forEach(id => {
                 const element = $(id);
                 if (element) element.disabled = value;
             });
@@ -1099,129 +1256,6 @@
             });
         }
 
-        async function loadProject(projectId) {
-            closeStream();
-            const body = await api(`/api/projects/${projectId}`);
-            currentProjectId = projectId;
-            currentProject = body.project;
-            $("topbar-title").textContent = body.project.title;
-            $("welcome-view").hidden = true;
-            $("thread-view").hidden = false;
-            $("composer-area").hidden = false;
-            $("export-btn").hidden = false;
-            $("delete-btn").hidden = false;
-            $("instruction-input").value = body.project.requirements || "";
-            $("composer-word-limit").value = body.project.word_limit;
-            $("composer-mode").value = body.project.writing_mode;
-            renderProject(body.project);
-            hideToast();
-            closeSidebar();
-            await loadProjects();
-        }
-
-        function renderProject(project) {
-            const thread = $("thread");
-            thread.replaceChildren();
-
-            if (!project.active_generations.length) {
-                const empty = document.createElement("div");
-                empty.className = "thread-empty";
-                empty.textContent = "项目已创建，正在等待第一次续写。";
-                thread.appendChild(empty);
-            }
-
-            project.active_generations.forEach((generation, index) => {
-                thread.appendChild(messageElement(
-                    generation,
-                    index === project.active_generations.length - 1
-                ));
-            });
-
-            const history = project.generation_history;
-            $("version-history").hidden = history.length === 0;
-            const versionList = $("version-list");
-            versionList.replaceChildren();
-
-            history.forEach(version => {
-                const row = document.createElement("div");
-                row.className = "version-row";
-
-                const label = document.createElement("strong");
-                label.textContent = `第 ${version.position} 段 · v${version.version}`;
-
-                const excerpt = document.createElement("span");
-                excerpt.className = "version-excerpt";
-                excerpt.textContent = version.content.replace(/\s+/g, " ").slice(0, 100);
-
-                const restore = document.createElement("button");
-                restore.type = "button";
-                restore.className = "tool-button";
-                restore.textContent = version.is_active ? "当前版本" : "恢复";
-                restore.disabled = Boolean(version.is_active);
-                restore.onclick = () => restoreVersion(version.id);
-
-                row.append(label, excerpt, restore);
-                versionList.appendChild(row);
-            });
-        }
-
-        function messageElement(generation, isLast = false) {
-            const article = document.createElement("article");
-            article.className = "message";
-
-            const avatar = document.createElement("div");
-            avatar.className = "assistant-avatar";
-            avatar.textContent = "文";
-            avatar.setAttribute("aria-hidden", "true");
-
-            const main = document.createElement("div");
-            main.className = "message-main";
-
-            const meta = document.createElement("div");
-            meta.className = "message-meta";
-            const author = document.createElement("span");
-            author.className = "message-author";
-            author.textContent = `续写第 ${generation.position} 段`;
-            const version = document.createElement("span");
-            version.className = "version-badge";
-            version.textContent = `版本 ${generation.version}`;
-            meta.append(author, version);
-
-            const content = document.createElement("div");
-            content.className = "message-content";
-            content.textContent = generation.content;
-
-            const tools = document.createElement("div");
-            tools.className = "message-tools";
-            const copy = document.createElement("button");
-            copy.type = "button";
-            copy.className = "tool-button";
-            copy.textContent = `${icon("copy")} 复制`;
-            copy.onclick = () => copyText(generation.content, copy);
-            tools.appendChild(copy);
-
-            if (isLast) {
-                const regenerate = document.createElement("button");
-                regenerate.type = "button";
-                regenerate.className = "tool-button";
-                regenerate.textContent = `${icon("regenerate")} 重新生成`;
-                regenerate.onclick = restartWriting;
-                tools.appendChild(regenerate);
-            }
-
-            main.append(meta, content, tools);
-
-            if (generation.plan) {
-                main.appendChild(analysisDetails("写作计划", generation.plan));
-            }
-            if (generation.consistency_report) {
-                main.appendChild(analysisDetails("一致性检查", generation.consistency_report));
-            }
-
-            article.append(avatar, main);
-            return article;
-        }
-
         function analysisDetails(title, body) {
             const details = document.createElement("details");
             details.className = "analysis-details";
@@ -1250,6 +1284,8 @@
             setBusy(false);
             currentProjectId = null;
             currentProject = null;
+            currentChapterId = null;
+            editorBaseline = "";
             $("new-project-form").reset();
             $("new-word-limit").value = "1000";
             $("new-writing-mode").value = "standard";
@@ -1274,72 +1310,6 @@
             }).toString();
         }
 
-        function liveMessageElement(replaceLast) {
-            const generation = {
-                position: currentProject?.active_generations?.length
-                    ? (replaceLast
-                        ? currentProject.active_generations.at(-1).position
-                        : currentProject.active_generations.at(-1).position + 1)
-                    : 1,
-                version: replaceLast
-                    ? (currentProject?.active_generations?.at(-1)?.version || 1) + 1
-                    : 1,
-                content: ""
-            };
-            const article = messageElement(generation, false);
-            const content = article.querySelector(".message-content");
-            content.classList.add("typing-cursor");
-            article.querySelector(".message-tools").remove();
-            return {article, content};
-        }
-
-        function startStreaming(url, replaceLast = false) {
-            if (busy) return;
-            closeStream();
-            setBusy(true);
-            streamCompleted = false;
-            showToast(replaceLast ? "正在生成新的版本…" : "正在准备续写…", false, true);
-
-            const live = liveMessageElement(replaceLast);
-            liveMessage = live.article;
-            $("thread").querySelector(".thread-empty")?.remove();
-            $("thread").appendChild(live.article);
-            live.article.scrollIntoView({behavior: "smooth", block: "start"});
-
-            eventSource = new EventSource(url);
-            eventSource.onmessage = async event => {
-                const data = JSON.parse(event.data);
-                if (data.type === "status") {
-                    showToast(data.content, false, true);
-                } else if (data.type === "content") {
-                    live.content.textContent += data.content;
-                    $("conversation").scrollTop = $("conversation").scrollHeight;
-                } else if (data.type === "review") {
-                    live.article.querySelector(".message-main")
-                        .appendChild(analysisDetails("一致性检查", data.content));
-                } else if (data.type === "complete") {
-                    streamCompleted = true;
-                    closeStream();
-                    setBusy(false);
-                    hideToast();
-                    await loadProject(currentProjectId);
-                } else if (data.type === "error") {
-                    closeStream();
-                    setBusy(false);
-                    live.article.remove();
-                    showToast(data.content, true, true);
-                }
-            };
-
-            eventSource.onerror = () => {
-                if (streamCompleted) return;
-                closeStream();
-                setBusy(false);
-                live.article.remove();
-                showToast("连接中断。已保存的版本不会丢失，请重新打开项目确认。", true, true);
-            };
-        }
-
         $("new-project-form").addEventListener("submit", async event => {
             event.preventDefault();
             if (busy) return;
@@ -1360,30 +1330,6 @@
             }
         });
 
-        function continueWriting() {
-            if (!currentProjectId || busy) return;
-            startStreaming(`/continue/${currentProjectId}?${settingsQuery()}`);
-        }
-
-        function restartWriting() {
-            if (!currentProjectId || busy) return;
-            startStreaming(`/restart/${currentProjectId}?${settingsQuery()}`, true);
-        }
-
-        async function restoreVersion(generationId) {
-            if (busy) return;
-            try {
-                showToast("正在恢复历史版本…", false, true);
-                await api(`/api/projects/${currentProjectId}/restore/${generationId}`, {
-                    method: "POST"
-                });
-                await loadProject(currentProjectId);
-                showToast("历史版本已恢复");
-            } catch (error) {
-                showToast(error.message, true, true);
-            }
-        }
-
         async function deleteProject() {
             if (!currentProjectId || busy) return;
             if (!confirm(`确定删除“${currentProject.title}”及其全部版本吗？`)) return;
@@ -1396,12 +1342,317 @@
             }
         }
 
+        function editorFingerprint() {
+            return JSON.stringify({
+                title: $("chapter-title").value,
+                content: $("chapter-content").value
+            });
+        }
+
+        function editorIsDirty() {
+            return Boolean(currentChapterId) && editorFingerprint() !== editorBaseline;
+        }
+
+        async function loadProject(projectId, preferredChapterId = currentChapterId) {
+            closeStream();
+            const body = await api(`/api/projects/${projectId}`);
+            currentProjectId = projectId;
+            currentProject = body.project;
+            $("topbar-title").textContent = body.project.title;
+            $("welcome-view").hidden = true;
+            $("thread-view").hidden = false;
+            $("composer-area").hidden = false;
+            $("export-btn").hidden = false;
+            $("delete-btn").hidden = false;
+            $("instruction-input").value = body.project.requirements || "";
+            $("composer-word-limit").value = body.project.word_limit;
+            $("composer-mode").value = body.project.writing_mode;
+            renderProject(body.project, preferredChapterId);
+            hideToast();
+            closeSidebar();
+            await loadProjects();
+        }
+
+        function renderProject(project, preferredChapterId = null) {
+            const select = $("chapter-select");
+            select.replaceChildren();
+            project.chapters.forEach(chapter => {
+                const option = document.createElement("option");
+                option.value = chapter.id;
+                option.textContent = `${chapter.position}. ${chapter.title}`;
+                select.appendChild(option);
+            });
+
+            const preferred = project.chapters.find(
+                chapter => chapter.id === preferredChapterId
+            );
+            const selected = preferred || project.chapters.at(-1);
+            currentChapterId = selected?.id || null;
+            if (currentChapterId) select.value = currentChapterId;
+            renderChapter(selected);
+        }
+
+        function renderChapter(chapter) {
+            if (!chapter) {
+                $("chapter-title").value = "";
+                $("chapter-content").value = "";
+                $("chapter-meta").textContent = "暂无章节";
+                $("version-history").hidden = true;
+                editorBaseline = editorFingerprint();
+                return;
+            }
+
+            currentChapterId = chapter.id;
+            $("chapter-select").value = chapter.id;
+            const active = chapter.active_version || {};
+            $("chapter-title").value = chapter.title;
+            $("chapter-content").value = active.content || "";
+            $("chapter-meta").textContent =
+                `${chapter.kind === "source" ? "导入原稿" : `第 ${chapter.position - 1} 章`} · v${active.version || 1} · ${$("chapter-content").value.length.toLocaleString()} 字`;
+            $("delete-chapter-btn").hidden = chapter.kind === "source";
+            $("generate-chapter-btn").disabled = chapter.kind === "source" || busy;
+            $("regenerate-btn").disabled = chapter.kind === "source" || busy;
+
+            const analysis = $("chapter-analysis");
+            analysis.replaceChildren();
+            if (active.plan) {
+                analysis.appendChild(analysisDetails("写作计划", active.plan));
+            }
+            if (active.consistency_report) {
+                analysis.appendChild(
+                    analysisDetails("一致性检查", active.consistency_report)
+                );
+            }
+
+            const versions = chapter.versions || [];
+            $("version-history").hidden = versions.length < 2;
+            const versionList = $("version-list");
+            versionList.replaceChildren();
+            versions.forEach(version => {
+                const row = document.createElement("div");
+                row.className = "version-row";
+
+                const label = document.createElement("strong");
+                const sourceLabel = version.source_type === "ai" ? "AI" :
+                    (version.source_type === "import" ? "导入" : "编辑");
+                label.textContent = `v${version.version} · ${sourceLabel}`;
+
+                const excerpt = document.createElement("span");
+                excerpt.className = "version-excerpt";
+                excerpt.textContent =
+                    (version.content || "").replace(/\s+/g, " ").slice(0, 100) || "空白章节";
+
+                const restore = document.createElement("button");
+                restore.type = "button";
+                restore.className = "tool-button";
+                restore.textContent = version.is_active ? "当前版本" : "恢复";
+                restore.disabled = Boolean(version.is_active);
+                restore.onclick = () => restoreVersion(version.id);
+
+                row.append(label, excerpt, restore);
+                versionList.appendChild(row);
+            });
+            editorBaseline = editorFingerprint();
+        }
+
+        function selectChapter(chapterId, force = false) {
+            if (!force && editorIsDirty() &&
+                !confirm("当前章节有未保存的修改，确定放弃吗？")) {
+                $("chapter-select").value = currentChapterId;
+                return;
+            }
+            const chapter = currentProject?.chapters?.find(
+                item => item.id === chapterId
+            );
+            renderChapter(chapter);
+        }
+
+        async function createChapter() {
+            if (!currentProjectId || busy) return;
+            if (editorIsDirty() && !confirm("当前修改尚未保存，仍要新建章节吗？")) {
+                return;
+            }
+            try {
+                const body = await api(
+                    `/api/projects/${currentProjectId}/chapters`,
+                    {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({
+                            title: `第 ${currentProject.chapters.filter(item => item.kind !== "source").length + 1} 章`,
+                            content: ""
+                        })
+                    }
+                );
+                await loadProject(currentProjectId, body.chapter.id);
+                $("chapter-title").focus();
+                showToast("新章节已创建");
+            } catch (error) {
+                showToast(error.message, true, true);
+            }
+        }
+
+        async function saveCurrentChapter() {
+            if (!currentProjectId || !currentChapterId || busy) return;
+            if (!editorIsDirty()) {
+                showToast("正文没有需要保存的修改");
+                return;
+            }
+            setBusy(true);
+            showToast("正在保存章节并同步长期记忆…", false, true);
+            try {
+                await api(
+                    `/api/projects/${currentProjectId}/chapters/${currentChapterId}`,
+                    {
+                        method: "PUT",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({
+                            title: $("chapter-title").value,
+                            content: $("chapter-content").value
+                        })
+                    }
+                );
+                setBusy(false);
+                await loadProject(currentProjectId, currentChapterId);
+                showToast("章节已保存为新版本");
+            } catch (error) {
+                setBusy(false);
+                showToast(error.message, true, true);
+            }
+        }
+
+        async function deleteCurrentChapter() {
+            if (!currentProjectId || !currentChapterId || busy) return;
+            const chapter = currentProject.chapters.find(
+                item => item.id === currentChapterId
+            );
+            if (!chapter || chapter.kind === "source") return;
+            if (!confirm(`确定删除《${chapter.title}》及其全部版本吗？`)) return;
+            try {
+                await api(
+                    `/api/projects/${currentProjectId}/chapters/${currentChapterId}`,
+                    {method: "DELETE"}
+                );
+                currentChapterId = null;
+                await loadProject(currentProjectId, null);
+                showToast("章节已删除，长期记忆已重新同步");
+            } catch (error) {
+                showToast(error.message, true, true);
+            }
+        }
+
+        async function copyCurrentChapter() {
+            await copyText($("chapter-content").value, $("copy-chapter-btn"));
+        }
+
+        function startStreaming(url, replaceCurrent = false) {
+            if (busy) return;
+            if (editorIsDirty() &&
+                !confirm("当前章节有未保存的修改，继续生成将放弃这些修改，确定吗？")) {
+                return;
+            }
+            closeStream();
+            setBusy(true);
+            streamCompleted = false;
+            const previousChapterId = currentChapterId;
+            showToast(
+                replaceCurrent ? "正在生成当前章节的新版本…" : "正在准备下一章…",
+                false,
+                true
+            );
+            $("chapter-title").value = replaceCurrent
+                ? $("chapter-title").value
+                : "正在生成下一章…";
+            $("chapter-content").value = "";
+            $("chapter-content").classList.add("generating");
+            $("chapter-meta").textContent = "AI 正在写作";
+            $("chapter-analysis").replaceChildren();
+            $("version-history").hidden = true;
+
+            eventSource = new EventSource(url);
+            eventSource.onmessage = async event => {
+                const data = JSON.parse(event.data);
+                if (data.type === "status") {
+                    showToast(data.content, false, true);
+                } else if (data.type === "content") {
+                    $("chapter-content").value += data.content;
+                    $("chapter-content").scrollTop = $("chapter-content").scrollHeight;
+                } else if (data.type === "complete") {
+                    streamCompleted = true;
+                    closeStream();
+                    setBusy(false);
+                    $("chapter-content").classList.remove("generating");
+                    await loadProject(
+                        currentProjectId,
+                        data.chapter_id || previousChapterId
+                    );
+                    showToast("章节生成完成");
+                } else if (data.type === "error") {
+                    closeStream();
+                    setBusy(false);
+                    $("chapter-content").classList.remove("generating");
+                    await loadProject(currentProjectId, previousChapterId);
+                    showToast(data.content, true, true);
+                }
+            };
+
+            eventSource.onerror = async () => {
+                if (streamCompleted) return;
+                closeStream();
+                setBusy(false);
+                $("chapter-content").classList.remove("generating");
+                await loadProject(currentProjectId, previousChapterId);
+                showToast("连接中断，请重新打开章节确认保存状态。", true, true);
+            };
+        }
+
+        function continueWriting() {
+            if (!currentProjectId || busy) return;
+            startStreaming(`/continue/${currentProjectId}?${settingsQuery()}`, false);
+        }
+
+        function restartWriting() {
+            if (!currentProjectId || !currentChapterId || busy) return;
+            const chapter = currentProject.chapters.find(
+                item => item.id === currentChapterId
+            );
+            if (!chapter || chapter.kind === "source") {
+                showToast("导入原稿不能由 AI 重写，请编辑后保存新版本", true);
+                return;
+            }
+            startStreaming(
+                `/api/projects/${currentProjectId}/chapters/${currentChapterId}/generate?${settingsQuery()}`,
+                true
+            );
+        }
+
+        async function restoreVersion(versionId) {
+            if (busy) return;
+            try {
+                setBusy(true);
+                showToast("正在恢复版本并重建长期记忆…", false, true);
+                await api(
+                    `/api/projects/${currentProjectId}/restore/${versionId}`,
+                    {method: "POST"}
+                );
+                setBusy(false);
+                await loadProject(currentProjectId, currentChapterId);
+                showToast("版本和对应长期记忆已恢复");
+            } catch (error) {
+                setBusy(false);
+                showToast(error.message, true, true);
+            }
+        }
+
         function exportProject() {
             if (!currentProject) return;
-            const generated = currentProject.active_generations
-                .map((item, index) => `## 续写 ${index + 1}\n\n${item.content}`)
+            const chapters = currentProject.chapters
+                .map(chapter => {
+                    const content = chapter.active_version?.content || "";
+                    return `## ${chapter.title}\n\n${content}`;
+                })
                 .join("\n\n");
-            const content = `# ${currentProject.title}\n\n## 原文\n\n${currentProject.original_text}\n\n${generated}\n`;
+            const content = `# ${currentProject.title}\n\n${chapters}\n`;
             const blob = new Blob([content], {type: "text/markdown;charset=utf-8"});
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
@@ -1417,6 +1668,18 @@
         }
 
         $("instruction-input").addEventListener("input", resizeComposer);
+        ["chapter-title", "chapter-content"].forEach(id => {
+            $(id).addEventListener("input", () => {
+                if (!currentChapterId || busy) return;
+                const chapter = currentProject?.chapters?.find(
+                    item => item.id === currentChapterId
+                );
+                const base = chapter?.active_version;
+                $("chapter-meta").textContent = editorIsDirty()
+                    ? `未保存 · ${$("chapter-content").value.length.toLocaleString()} 字`
+                    : `${chapter?.kind === "source" ? "导入原稿" : "章节"} · v${base?.version || 1}`;
+            });
+        });
         $("instruction-input").addEventListener("keydown", event => {
             if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
                 event.preventDefault();
@@ -1429,7 +1692,13 @@
             $("file-name").textContent = file ? file.name : "支持 UTF-8、GB18030";
         });
 
-        window.addEventListener("beforeunload", closeStream);
+        window.addEventListener("beforeunload", event => {
+            closeStream();
+            if (editorIsDirty()) {
+                event.preventDefault();
+                event.returnValue = "";
+            }
+        });
         initializeTheme();
         loadProjects().catch(error => showToast(error.message, true, true));
     </script>

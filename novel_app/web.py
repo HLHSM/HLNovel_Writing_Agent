@@ -116,11 +116,50 @@ def create_app(
         return database.get_project(project_id, _owner_token())
 
     def project_payload(project: dict[str, Any]) -> dict[str, Any]:
-        active = database.active_generations(project["id"])
-        history = database.generation_history(project["id"])
+        chapters = database.list_chapters(project["id"])
+        source = next(
+            (chapter for chapter in chapters if chapter["kind"] == "source"),
+            None,
+        )
+        active = []
+        history = []
+        writing_position = 0
+        for chapter in chapters:
+            if chapter["kind"] == "source":
+                continue
+            writing_position += 1
+            if chapter["active_version"]:
+                active.append(
+                    {
+                        **chapter["active_version"],
+                        "position": writing_position,
+                        "chapter_id": chapter["id"],
+                        "chapter_title": chapter["title"],
+                    }
+                )
+            history.extend(
+                {
+                    **version,
+                    "position": writing_position,
+                    "chapter_id": chapter["id"],
+                    "chapter_title": chapter["title"],
+                }
+                for version in chapter["versions"]
+            )
+        source_content = (
+            source["active_version"]["content"]
+            if source and source["active_version"]
+            else project["original_text"]
+        )
         return {
-            **{key: value for key, value in project.items() if key != "owner_token"},
+            **{
+                key: value
+                for key, value in project.items()
+                if key not in {"owner_token", "memory_json"}
+            },
+            "original_text": source_content,
             "has_memory": bool(project.get("memory_json")),
+            "chapters": chapters,
             "active_generations": active,
             "generation_history": history,
         }
@@ -129,7 +168,11 @@ def create_app(
         with locks_guard:
             return generation_locks.setdefault(project_id, threading.Lock())
 
-    def sse_stream(project_id: str, action: str) -> Response:
+    def sse_stream(
+        project_id: str,
+        action: str,
+        chapter_id: str | None = None,
+    ) -> Response:
         project = project_or_404(project_id)
         if not project:
             return Response("project not found", status=404)
@@ -143,7 +186,9 @@ def create_app(
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
                 return
             try:
-                for event in service.generate(project_id, owner, action):
+                for event in service.generate(
+                    project_id, owner, action, chapter_id=chapter_id
+                ):
                     yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
             finally:
                 project_lock.release()
@@ -238,6 +283,13 @@ def create_app(
         error = update_settings(project_id)
         return error or sse_stream(project_id, "restart")
 
+    @app.get("/api/projects/<project_id>/chapters/<chapter_id>/generate")
+    def generate_chapter(project_id: str, chapter_id: str) -> Response:
+        error = update_settings(project_id)
+        return error or sse_stream(
+            project_id, "restart", chapter_id=chapter_id
+        )
+
     @app.get("/api/projects")
     def list_projects() -> Response:
         return jsonify(
@@ -251,12 +303,57 @@ def create_app(
             return jsonify({"success": False, "error": "项目不存在"}), 404
         return jsonify({"success": True, "project": project_payload(project)})
 
+    @app.post("/api/projects/<project_id>/chapters")
+    def create_chapter(project_id: str) -> Response:
+        project = project_or_404(project_id)
+        if not project:
+            return jsonify({"success": False, "error": "项目不存在"}), 404
+        body = request.get_json(silent=True) or {}
+        try:
+            chapter = service.create_manual_chapter(
+                project_id,
+                _owner_token(),
+                str(body.get("title", "")).strip() or "未命名章节",
+                str(body.get("content", "")),
+            )
+        except ValueError as exc:
+            return jsonify({"success": False, "error": str(exc)}), 400
+        return jsonify({"success": True, "chapter": chapter}), 201
+
+    @app.put("/api/projects/<project_id>/chapters/<chapter_id>")
+    def save_chapter(project_id: str, chapter_id: str) -> Response:
+        project = project_or_404(project_id)
+        if not project:
+            return jsonify({"success": False, "error": "项目不存在"}), 404
+        body = request.get_json(silent=True) or {}
+        try:
+            version = service.save_manual_chapter(
+                project_id,
+                _owner_token(),
+                chapter_id,
+                str(body.get("title", "")).strip(),
+                str(body.get("content", "")),
+            )
+        except ValueError as exc:
+            return jsonify({"success": False, "error": str(exc)}), 400
+        return jsonify({"success": True, "version": version})
+
+    @app.delete("/api/projects/<project_id>/chapters/<chapter_id>")
+    def delete_chapter(project_id: str, chapter_id: str) -> Response:
+        deleted = service.delete_chapter(
+            project_id, _owner_token(), chapter_id
+        )
+        status = 200 if deleted else 400
+        return jsonify({"success": deleted}), status
+
     @app.post("/api/projects/<project_id>/restore/<generation_id>")
     def restore_version(project_id: str, generation_id: str) -> Response:
         project = project_or_404(project_id)
         if not project:
             return jsonify({"success": False, "error": "项目不存在"}), 404
-        restored = database.restore_generation(project_id, generation_id)
+        restored = service.restore_version(
+            project_id, _owner_token(), generation_id
+        )
         if not restored:
             return jsonify({"success": False, "error": "版本不存在"}), 404
         return jsonify({"success": True, "generation": restored})

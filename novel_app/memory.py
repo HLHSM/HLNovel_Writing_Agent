@@ -135,7 +135,7 @@ style_profile（视角、语言、节奏、对话和描写特点）。
             half = max(1, limit // 2)
             return value[:half] + "\n…（中间内容已按预算省略）…\n" + value[-half:]
 
-        recent_generated = "\n\n".join(generated_segments)
+        recent_generated = "\n\n".join(generated_segments)[-self.recent_chars:]
         memory_text = (
             json.dumps(memory, ensure_ascii=False, separators=(",", ":"))
             if memory
@@ -150,9 +150,12 @@ style_profile（视角、语言、节奏、对话和描写特点）。
             max(self.style_sample_chars, self.context_budget // 3),
         )
         fixed_cost = memory_budget + original_budget + 500
-        generated_budget = max(
-            self.style_sample_chars,
-            self.context_budget - fixed_cost,
+        generated_budget = min(
+            self.recent_chars,
+            max(
+                self.style_sample_chars,
+                self.context_budget - fixed_cost,
+            ),
         )
 
         sections: list[str] = []

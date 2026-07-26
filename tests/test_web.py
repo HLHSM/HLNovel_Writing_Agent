@@ -16,6 +16,95 @@ def test_index_has_responsive_chat_workspace(client):
     assert 'id="composer-area"' in html
     assert 'id="instruction-input"' in html
     assert 'id="theme-label"' in html
+    assert 'id="chapter-select"' in html
+    assert 'id="chapter-content"' in html
+    assert 'id="save-chapter-btn"' in html
+
+
+def test_manual_chapter_edit_creates_a_restorable_version(client):
+    project_id = create_project(client)
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+
+    assert len(project["chapters"]) == 1
+    assert project["chapters"][0]["kind"] == "source"
+
+    created = client.post(
+        f"/api/projects/{project_id}/chapters",
+        json={"title": "雨夜来客", "content": ""},
+    )
+    assert created.status_code == 201
+    chapter_id = created.get_json()["chapter"]["id"]
+
+    saved = client.put(
+        f"/api/projects/{project_id}/chapters/{chapter_id}",
+        json={"title": "雨夜来客", "content": "门外响起三声敲门声。"},
+    )
+    assert saved.status_code == 200
+
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+    chapter = next(item for item in project["chapters"] if item["id"] == chapter_id)
+    assert chapter["active_version"]["content"] == "门外响起三声敲门声。"
+    assert chapter["active_version"]["source_type"] == "manual"
+    assert len(chapter["versions"]) == 2
+
+
+def test_restore_rebuilds_memory_from_only_active_versions(client, app):
+    writing = app.extensions["fake_writing"]
+    writing.writing_outputs = ["第一版正文", "第二版正文"]
+    project_id = create_project(client, text="很长的原稿。" * 30)
+    consume_stream(client, f"/stream/{project_id}")
+    consume_stream(client, f"/restart/{project_id}")
+
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+    generated = next(
+        chapter for chapter in project["chapters"] if chapter["kind"] == "draft"
+    )
+    first = next(
+        version for version in generated["versions"] if version["version"] == 1
+    )
+    assert generated["active_version"]["content"] == "第二版正文"
+    assert generated["active_version"]["has_memory_before"] is True
+    assert generated["active_version"]["has_memory_after"] is True
+
+    summary = app.extensions["fake_summary"]
+    call_count = len(summary.calls)
+    restored = client.post(
+        f"/api/projects/{project_id}/restore/{first['id']}"
+    )
+    assert restored.status_code == 200
+
+    rebuilt_prompts = "\n".join(summary.calls[call_count:])
+    assert "第一版正文" in rebuilt_prompts
+    assert "第二版正文" not in rebuilt_prompts
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+    generated = next(
+        chapter for chapter in project["chapters"] if chapter["kind"] == "draft"
+    )
+    assert generated["active_version"]["content"] == "第一版正文"
+    assert project["has_memory"] is True
+
+
+def test_selected_chapter_can_be_rewritten_independently(client, app):
+    writing = app.extensions["fake_writing"]
+    writing.writing_outputs = ["第一章初稿", "第一章重写"]
+    project_id = create_project(client)
+    consume_stream(client, f"/stream/{project_id}")
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+    chapter = next(
+        item for item in project["chapters"] if item["kind"] == "draft"
+    )
+
+    consume_stream(
+        client,
+        f"/api/projects/{project_id}/chapters/{chapter['id']}/generate",
+    )
+
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+    chapter = next(
+        item for item in project["chapters"] if item["kind"] == "draft"
+    )
+    assert chapter["active_version"]["content"] == "第一章重写"
+    assert [version["version"] for version in chapter["versions"]] == [2, 1]
 
 
 def test_initial_word_limit_is_persisted_and_used(client, app):

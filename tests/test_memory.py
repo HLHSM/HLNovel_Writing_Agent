@@ -24,3 +24,15 @@ def test_context_budget_keeps_global_memory_and_recent_end(app):
     assert "必须保留的全局记忆" in context
     assert "必须保留的结尾" in context
     assert "续写" in context
+
+
+def test_recent_context_setting_discards_old_generated_text(app):
+    manager = app.extensions["novel_service"].memory
+    context = manager.context_for(
+        "原稿结尾",
+        ["应当丢弃的早期内容" + "填充" * 50, "必须保留的最近内容"],
+        None,
+    )
+
+    assert "必须保留的最近内容" in context
+    assert "应当丢弃的早期内容" not in context
