@@ -10,6 +10,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+from .chapters import parse_novel_chapters
+
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -126,36 +128,14 @@ class NovelDatabase:
         ).fetchall()
         for project in projects:
             now = utc_now()
-            source_chapter_id = str(uuid.uuid4())
-            connection.execute(
-                """
-                INSERT INTO chapters (
-                    id, project_id, position, title, kind, created_at, updated_at
-                ) VALUES (?, ?, 1, ?, 'source', ?, ?)
-                """,
-                (
-                    source_chapter_id,
-                    project["id"],
-                    project["title"] or "导入原稿",
-                    now,
-                    now,
-                ),
-            )
-            connection.execute(
-                """
-                INSERT INTO chapter_versions (
-                    id, chapter_id, version, content, requirements,
-                    writing_mode, source_type, is_active, created_at
-                ) VALUES (?, ?, 1, ?, ?, ?, 'import', 1, ?)
-                """,
-                (
-                    str(uuid.uuid4()),
-                    source_chapter_id,
-                    project["original_text"],
-                    project["requirements"],
-                    project["writing_mode"],
-                    now,
-                ),
+            source_count = NovelDatabase._insert_imported_chapters(
+                connection,
+                project_id=project["id"],
+                project_title=project["title"],
+                original_text=project["original_text"],
+                requirements=project["requirements"],
+                writing_mode=project["writing_mode"],
+                now=now,
             )
 
             positions = connection.execute(
@@ -167,7 +147,9 @@ class NovelDatabase:
                 """,
                 (project["id"],),
             ).fetchall()
-            for chapter_position, generation_position in enumerate(positions, start=2):
+            for chapter_position, generation_position in enumerate(
+                positions, start=source_count + 1
+            ):
                 chapter_id = str(uuid.uuid4())
                 connection.execute(
                     """
@@ -179,7 +161,7 @@ class NovelDatabase:
                         chapter_id,
                         project["id"],
                         chapter_position,
-                        f"续写 {generation_position['position']}",
+                        f"续写 {generation_position['position']}(续写)",
                         now,
                         now,
                     ),
@@ -215,6 +197,53 @@ class NovelDatabase:
                         ),
                     )
 
+    @staticmethod
+    def _insert_imported_chapters(
+        connection: sqlite3.Connection,
+        *,
+        project_id: str,
+        project_title: str,
+        original_text: str,
+        requirements: str,
+        writing_mode: str,
+        now: str,
+    ) -> int:
+        chapters = parse_novel_chapters(original_text, project_title or "导入原稿")
+        for position, chapter in enumerate(chapters, start=1):
+            chapter_id = str(uuid.uuid4())
+            connection.execute(
+                """
+                INSERT INTO chapters (
+                    id, project_id, position, title, kind, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, 'source', ?, ?)
+                """,
+                (
+                    chapter_id,
+                    project_id,
+                    position,
+                    chapter.title,
+                    now,
+                    now,
+                ),
+            )
+            connection.execute(
+                """
+                INSERT INTO chapter_versions (
+                    id, chapter_id, version, content, requirements,
+                    writing_mode, source_type, is_active, created_at
+                ) VALUES (?, ?, 1, ?, ?, ?, 'import', 1, ?)
+                """,
+                (
+                    str(uuid.uuid4()),
+                    chapter_id,
+                    chapter.content,
+                    requirements,
+                    writing_mode,
+                    now,
+                ),
+            )
+        return len(chapters)
+
     def create_project(
         self,
         owner_token: str,
@@ -246,31 +275,14 @@ class NovelDatabase:
                     now,
                 ),
             )
-            chapter_id = str(uuid.uuid4())
-            version_id = str(uuid.uuid4())
-            connection.execute(
-                """
-                INSERT INTO chapters (
-                    id, project_id, position, title, kind, created_at, updated_at
-                ) VALUES (?, ?, 1, ?, 'source', ?, ?)
-                """,
-                (chapter_id, project_id, title or "导入原稿", now, now),
-            )
-            connection.execute(
-                """
-                INSERT INTO chapter_versions (
-                    id, chapter_id, version, content, requirements,
-                    writing_mode, source_type, is_active, created_at
-                ) VALUES (?, ?, 1, ?, ?, ?, 'import', 1, ?)
-                """,
-                (
-                    version_id,
-                    chapter_id,
-                    original_text,
-                    requirements,
-                    writing_mode,
-                    now,
-                ),
+            self._insert_imported_chapters(
+                connection,
+                project_id=project_id,
+                project_title=title,
+                original_text=original_text,
+                requirements=requirements,
+                writing_mode=writing_mode,
+                now=now,
             )
         return self.get_project(project_id, owner_token)
 

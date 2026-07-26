@@ -48,6 +48,64 @@ def test_manual_chapter_edit_creates_a_restorable_version(client):
     assert len(chapter["versions"]) == 2
 
 
+def test_imported_novel_is_automatically_split_into_chapters(client):
+    project_id = create_project(
+        client,
+        text="第一章 相遇\n林舟推开门。\n\n第二章 雨夜\n雨声越来越近。",
+    )
+
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+
+    assert [chapter["title"] for chapter in project["chapters"]] == [
+        "第一章 相遇",
+        "第二章 雨夜",
+    ]
+    assert all(chapter["kind"] == "source" for chapter in project["chapters"])
+    assert project["chapters"][0]["active_version"]["content"] == "林舟推开门。"
+
+
+def test_imported_chapter_can_be_rewritten_with_specific_requirement(client, app):
+    writing = app.extensions["fake_writing"]
+    writing.writing_outputs = ["重写后的第一章"]
+    project_id = create_project(
+        client,
+        text="第一章 相遇\n原始第一章。\n\n第二章 雨夜\n原始第二章。",
+    )
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+    first_chapter = project["chapters"][0]
+
+    consume_stream(
+        client,
+        (
+            f"/api/projects/{project_id}/chapters/{first_chapter['id']}/generate"
+            "?requirements=增强悬疑感"
+        ),
+    )
+
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+    rewritten = project["chapters"][0]
+    assert rewritten["active_version"]["content"] == "重写后的第一章"
+    assert len(rewritten["versions"]) == 2
+    writing_prompt = writing.calls[-1]
+    assert "增强悬疑感" in writing_prompt
+    assert "原始第一章" in writing_prompt
+
+
+def test_continued_chapter_title_has_suffix(client):
+    project_id = create_project(
+        client,
+        text="第一章 相遇\n原始第一章。\n\n第二章 雨夜\n原始第二章。",
+    )
+
+    consume_stream(client, f"/stream/{project_id}")
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+    continued = next(
+        chapter for chapter in project["chapters"] if chapter["kind"] == "draft"
+    )
+
+    assert continued["title"].endswith("(续写)")
+
+
 def test_restore_rebuilds_memory_from_only_active_versions(client, app):
     writing = app.extensions["fake_writing"]
     writing.writing_outputs = ["第一版正文", "第二版正文"]

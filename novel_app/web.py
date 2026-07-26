@@ -117,10 +117,9 @@ def create_app(
 
     def project_payload(project: dict[str, Any]) -> dict[str, Any]:
         chapters = database.list_chapters(project["id"])
-        source = next(
-            (chapter for chapter in chapters if chapter["kind"] == "source"),
-            None,
-        )
+        source_chapters = [
+            chapter for chapter in chapters if chapter["kind"] == "source"
+        ]
         active = []
         history = []
         writing_position = 0
@@ -146,11 +145,11 @@ def create_app(
                 }
                 for version in chapter["versions"]
             )
-        source_content = (
-            source["active_version"]["content"]
-            if source and source["active_version"]
-            else project["original_text"]
-        )
+        source_content = "\n\n".join(
+            chapter["active_version"]["content"]
+            for chapter in source_chapters
+            if chapter["active_version"]
+        ) or project["original_text"]
         return {
             **{
                 key: value
@@ -240,6 +239,7 @@ def create_app(
                 word_limit=word_limit,
                 writing_mode=mode,
             )
+            chapter_count = len(database.list_chapters(project["id"]))
             return jsonify(
                 {
                     "success": True,
@@ -248,6 +248,7 @@ def create_app(
                     "text_length": len(text_content),
                     "used_summary": len(text_content) > memory.threshold,
                     "word_limit": word_limit,
+                    "chapter_count": chapter_count,
                 }
             )
         except ValueError as exc:

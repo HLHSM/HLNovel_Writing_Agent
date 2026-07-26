@@ -107,13 +107,10 @@ class NovelService:
         chapters: list[dict[str, Any]],
         memory_before: dict[str, Any] | None,
     ) -> str:
-        source = next(
-            (
-                self._chapter_content(chapter)
-                for chapter in chapters
-                if chapter["kind"] == "source"
-            ),
-            "",
+        source = "\n\n".join(
+            self._chapter_content(chapter)
+            for chapter in chapters
+            if chapter["kind"] == "source"
         )
         generated = [
             self._chapter_content(chapter)
@@ -160,10 +157,6 @@ class NovelService:
         elif action == "restart" and draft_chapters:
             target = draft_chapters[-1]
 
-        if target and target["kind"] == "source":
-            yield {"type": "error", "content": "导入原稿请使用人工编辑保存"}
-            return
-
         prefix_chapters = (
             [chapter for chapter in chapters if chapter["position"] < target["position"]]
             if target
@@ -173,7 +166,7 @@ class NovelService:
         chapter_title = (
             target["title"]
             if target
-            else f"第 {len(draft_chapters) + 1} 章"
+            else f"第 {len(chapters) + 1} 章(续写)"
         )
 
         try:
@@ -190,6 +183,11 @@ class NovelService:
                 memory_before = self.memory.build_memory(prefix_text)
 
             context = self._context_for_chapters(prefix_chapters, memory_before)
+            if target:
+                context += (
+                    "\n\n【待重写章节原文】\n"
+                    + self._chapter_content(target)
+                )
             plan = ""
             if project["writing_mode"] == "standard":
                 yield {"type": "status", "content": "正在规划本段情节（章节级）…"}
