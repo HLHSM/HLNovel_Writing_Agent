@@ -2,783 +2,704 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>小说续写智能助手</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>长篇小说写作助手</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        :root {
+            color-scheme: light;
+            --ink: #20232b;
+            --muted: #6b7280;
+            --paper: #fffdf8;
+            --panel: #ffffff;
+            --line: #e7e1d7;
+            --brand: #74523a;
+            --brand-dark: #543927;
+            --accent: #b7794b;
+            --soft: #f5efe6;
+            --danger: #a33a32;
+            --success: #2f6a4f;
         }
+
+        * { box-sizing: border-box; }
 
         body {
-            font-family: 'Microsoft YaHei', '微软雅黑', Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
             min-height: 100vh;
-            padding: 20px;
+            color: var(--ink);
+            background: #eee9e1;
+            font-family: "Noto Serif SC", "Songti SC", "Microsoft YaHei", serif;
         }
 
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            overflow: hidden;
-        }
+        button, input, textarea, select { font: inherit; }
+        button { cursor: pointer; }
 
-        .header {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            font-weight: 300;
-        }
-
-        .header p {
-            font-size: 1.1em;
-            opacity: 0.9;
-        }
-
-        .main-content {
+        .shell {
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            padding: 30px;
+            grid-template-columns: 260px minmax(320px, 470px) minmax(460px, 1fr);
+            min-height: 100vh;
         }
 
-        .input-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 25px;
-            border: 1px solid #e9ecef;
+        .sidebar, .editor, .manuscript {
+            min-width: 0;
+            padding: 24px;
         }
 
-        .input-section h2 {
-            color: #495057;
-            margin-bottom: 20px;
-            font-size: 1.3em;
-            border-bottom: 2px solid #4facfe;
-            padding-bottom: 10px;
+        .sidebar {
+            color: #f9f5ef;
+            background: #2f2925;
         }
 
-        .input-tabs {
+        .brand {
+            margin-bottom: 28px;
+        }
+
+        .brand h1 {
+            margin: 0 0 8px;
+            font-size: 22px;
+            letter-spacing: .08em;
+        }
+
+        .brand p {
+            margin: 0;
+            color: #cfc6bd;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+
+        .sidebar-title {
             display: flex;
-            margin-bottom: 20px;
+            align-items: center;
+            justify-content: space-between;
+            margin: 22px 0 10px;
+            font-size: 13px;
+            color: #d8cec4;
+        }
+
+        .project-list {
+            display: grid;
+            gap: 8px;
+        }
+
+        .project-item {
+            width: 100%;
+            padding: 11px 12px;
+            text-align: left;
+            color: #eee8e2;
+            background: transparent;
+            border: 1px solid #514740;
             border-radius: 8px;
+        }
+
+        .project-item:hover,
+        .project-item.active {
+            background: #493e37;
+            border-color: #8e735f;
+        }
+
+        .project-item span {
+            display: block;
             overflow: hidden;
-            background: #dee2e6;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .tab-button {
-            flex: 1;
-            padding: 12px;
-            background: #dee2e6;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            transition: all 0.3s ease;
-        }
-
-        .tab-button.active {
-            background: #4facfe;
-            color: white;
-        }
-
-        .tab-content {
-            display: none;
-        }
-
-        .tab-content.active {
+        .project-item small {
             display: block;
+            margin-top: 4px;
+            color: #b9aea5;
+            font-size: 11px;
         }
 
-        .form-group {
-            margin-bottom: 20px;
+        .sidebar button.secondary {
+            color: #f5eee8;
+            border-color: #6b5b50;
+            background: transparent;
         }
 
-        .form-group label {
+        .editor {
+            overflow-y: auto;
+            background: var(--paper);
+            border-right: 1px solid var(--line);
+        }
+
+        .manuscript {
+            overflow-y: auto;
+            background: #f7f3ec;
+        }
+
+        h2 {
+            margin: 0 0 18px;
+            font-size: 20px;
+        }
+
+        .field { margin-bottom: 17px; }
+
+        label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
-            color: #495057;
+            margin-bottom: 7px;
+            color: #514940;
+            font-size: 13px;
+            font-weight: 700;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            border: 1px solid #d8d0c6;
+            border-radius: 8px;
+            background: #fff;
+            color: var(--ink);
+            padding: 11px 12px;
         }
 
         textarea {
-            width: 100%;
-            min-height: 200px;
-            padding: 15px;
-            border: 2px solid #dee2e6;
-            border-radius: 8px;
-            font-size: 14px;
-            line-height: 1.5;
+            min-height: 112px;
+            line-height: 1.65;
             resize: vertical;
-            transition: border-color 0.3s ease;
         }
 
-        textarea:focus {
-            outline: none;
-            border-color: #4facfe;
+        #text-input { min-height: 280px; }
+
+        input:focus, textarea:focus, select:focus {
+            outline: 2px solid #d9b89d;
+            border-color: var(--accent);
         }
 
-        .file-upload {
-            position: relative;
-            display: inline-block;
-            width: 100%;
+        .inline {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
         }
 
-        .file-upload input[type=file] {
-            position: absolute;
-            left: -9999px;
-        }
-
-        .file-upload-label {
+        .hint {
             display: block;
-            padding: 15px;
-            background: #f8f9fa;
-            border: 2px dashed #dee2e6;
+            margin-top: 6px;
+            color: var(--muted);
+            font-size: 11px;
+            line-height: 1.5;
+        }
+
+        .file-box {
+            display: block;
+            padding: 14px;
+            border: 1px dashed #bea995;
             border-radius: 8px;
+            color: #6d5745;
+            background: var(--soft);
             text-align: center;
             cursor: pointer;
-            transition: all 0.3s ease;
         }
 
-        .file-upload-label:hover {
-            background: #e9ecef;
-            border-color: #4facfe;
-        }
+        #file-input { display: none; }
 
-        .submit-btn, .control-btn {
-            padding: 12px 24px;
-            border: none;
-            border-radius: 6px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            min-width: 120px;
-            height: 48px;
-        }
-        
-        .submit-btn {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-            color: white;
-        }
-        
-        .submit-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(79, 172, 254, 0.4);
-        }
-        
-        .submit-btn:disabled {
-            background: #6c757d;
-            cursor: not-allowed;
-            transform: none;
-            box-shadow: none;
-        }
-
-        .output-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 25px;
-            border: 1px solid #e9ecef;
-        }
-
-        .output-section h2 {
-            color: #495057;
-            margin-bottom: 20px;
-            font-size: 1.3em;
-            border-bottom: 2px solid #28a745;
-            padding-bottom: 10px;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #6c757d;
-        }
-
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #4facfe;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 20px;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
-        .result {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            border: 1px solid #dee2e6;
-            line-height: 1.8;
-            white-space: pre-wrap;
-            font-size: 14px;
-            max-height: 500px;
-            overflow-y: auto;
-            min-height: 200px;
-        }
-
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #f5c6cb;
-        }
-
-        .info {
-            background: #d1ecf1;
-            color: #0c5460;
-            padding: 10px 15px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            font-size: 13px;
-        }
-
-        .control-buttons {
-            margin: 15px 0;
-            text-align: center;
-            display: none;
-        }
-        
-        .button-group {
+        .actions {
             display: flex;
-            gap: 10px;
-            justify-content: center;
             flex-wrap: wrap;
-            margin-top: 20px;
+            gap: 9px;
+            margin-top: 18px;
         }
 
-        .control-btn {
-            margin: 0 5px;
-        }
-
-        .continue-btn {
-            background: linear-gradient(135deg, #fd79a8 0%, #e84393 100%);
-            color: white;
-        }
-
-        .continue-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 3px 10px rgba(232, 67, 147, 0.3);
-        }
-
-        .restart-btn {
-            background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%);
-            color: white;
-        }
-
-        .restart-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 3px 10px rgba(9, 132, 227, 0.3);
-        }
-
-        .new-task-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        
-        .new-task-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
-        }
-
-        .status-message {
-            background: #e3f2fd;
-            color: #1565c0;
+        button {
+            border: 1px solid transparent;
+            border-radius: 8px;
             padding: 10px 15px;
-            border-radius: 6px;
-            margin-bottom: 10px;
-            font-size: 13px;
-            border-left: 4px solid #1976d2;
-        }
-
-        .save-btn {
-            padding: 10px 20px;
-            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
             color: white;
-            border: none;
+            background: var(--brand);
+        }
+
+        button:hover { background: var(--brand-dark); }
+        button:disabled { cursor: not-allowed; opacity: .5; }
+
+        button.secondary {
+            color: var(--brand);
+            border-color: #c8b7a7;
+            background: #fff;
+        }
+
+        button.secondary:hover { background: var(--soft); }
+
+        button.danger {
+            color: var(--danger);
+            border-color: #d9aaa6;
+            background: transparent;
+        }
+
+        .status {
+            display: none;
+            margin-bottom: 14px;
+            padding: 11px 13px;
+            color: #60492f;
+            border-left: 4px solid var(--accent);
+            background: #f0e4d5;
             border-radius: 6px;
-            font-size: 14px;
+            font-size: 13px;
+        }
+
+        .status.error {
+            display: block;
+            color: #7a2722;
+            border-color: var(--danger);
+            background: #f7e2e0;
+        }
+
+        .status.visible { display: block; }
+
+        .empty {
+            margin-top: 80px;
+            color: var(--muted);
+            text-align: center;
+            line-height: 1.8;
+        }
+
+        .chapter {
+            max-width: 840px;
+            margin: 0 auto 18px;
+            padding: 28px 32px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: var(--panel);
+            box-shadow: 0 5px 20px rgba(77, 60, 44, .05);
+        }
+
+        .chapter-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 18px;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .chapter-content {
+            white-space: pre-wrap;
+            line-height: 1.95;
+            font-size: 16px;
+        }
+
+        .review {
+            margin-top: 20px;
+            padding: 12px;
+            color: #5f4a31;
+            white-space: pre-wrap;
+            border-radius: 6px;
+            background: #f7f0e5;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+
+        .versions {
+            max-width: 840px;
+            margin: 26px auto;
+            padding-top: 18px;
+            border-top: 1px solid #d8d0c6;
+        }
+
+        .versions summary {
+            color: var(--brand);
             cursor: pointer;
-            transition: all 0.3s ease;
+            font-weight: 700;
         }
 
-        .save-btn:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 3px 10px rgba(40, 167, 69, 0.3);
+        .version-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            background: #fff;
+            font-size: 12px;
         }
 
-        @media (max-width: 768px) {
-            .main-content {
-                grid-template-columns: 1fr;
-                gap: 20px;
-                padding: 20px;
-            }
-            
-            .header h1 {
-                font-size: 2em;
-            }
+        .version-row .excerpt {
+            flex: 1;
+            overflow: hidden;
+            color: var(--muted);
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .version-row button {
+            padding: 6px 10px;
+            font-size: 11px;
+        }
+
+        @media (max-width: 1100px) {
+            .shell { grid-template-columns: 220px 390px 1fr; }
+        }
+
+        @media (max-width: 820px) {
+            .shell { display: block; }
+            .sidebar, .editor, .manuscript { min-height: auto; }
+            .project-list { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+            .manuscript { min-height: 60vh; }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>小说续写智能助手</h1>
-            <p>基于AI的智能小说续写工具，支持长文本自动总结与续写</p>
-        </div>
-        
-        <div class="main-content">
-            <div class="input-section">
-                <h2>📝 输入内容</h2>
-                
-                <div class="input-tabs">
-                    <button class="tab-button active" onclick="switchTab('text')">文本输入</button>
-                    <button class="tab-button" onclick="switchTab('file')">文件上传</button>
-                </div>
-                
-                <form id="novelForm">
-                    <div id="text-tab" class="tab-content active">
-                        <div class="form-group">
-                            <label for="text-input">请输入小说内容：</label>
-                            <textarea id="text-input" name="text_input" placeholder="在此粘贴您的小说内容...&#10;&#10;支持中文小说，程序会自动判断文本长度：&#10;• 超过100k字符：先进行智能总结，再续写&#10;• 少于100k字符：直接进行续写"></textarea>
-                        </div>
-                    </div>
-                    
-                    <div id="file-tab" class="tab-content">
-                        <div class="form-group">
-                            <label>上传小说文件：</label>
-                            <div class="file-upload">
-                                <input type="file" id="file-input" name="file" accept=".txt,.md">
-                                <label for="file-input" class="file-upload-label">
-                                    📁 点击选择文件或拖拽到此处<br>
-                                    <small>支持 .txt 和 .md 格式</small>
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="requirements">额外写作要求（可选）：</label>
-                        <textarea id="requirements" name="requirements" style="min-height: 100px;" placeholder="例如：&#10;• 增加更多对话&#10;• 加强悬疑氛围&#10;• 重点描写人物心理&#10;• 推进主线剧情"></textarea>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="word-limit">续写字数限制：</label>
-                        <input type="number" id="word-limit" name="word_limit" value="1000" min="100" max="10000" placeholder="请输入期望的续写字数">
-                        <small style="color: #6c757d; margin-top: 5px; display: block;">建议范围：100-10000字</small>
-                    </div>
-                    
-                    <div class="button-group">
-                        <button type="submit" class="control-btn submit-btn" id="submitBtn">
-                            🚀 开始续写
-                        </button>
-                        <button type="button" onclick="continueWriting()" class="control-btn continue-btn" id="continueBtn" style="display: none;">
-                            ✏️ 继续续写
-                        </button>
-                        <button type="button" onclick="restartWriting()" class="control-btn restart-btn" id="restartBtn" style="display: none;">
-                            🔄 重新续写
-                        </button>
-                        <button type="button" onclick="newTask()" class="control-btn new-task-btn" id="newTaskBtn" style="display: none;">
-                            📝 新任务
-                        </button>
-                    </div>
-                </form>
+    <main class="shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <h1>长篇小说写作助手</h1>
+                <p>分层记忆、版本管理与一致性检查，让多轮续写保持人物、情节和世界观连贯。</p>
             </div>
-            
-            <div class="output-section">
-                <h2>📖 续写结果</h2>
-                <div id="output">
-                    <div style="text-align: center; padding: 40px; color: #6c757d;">
-                        <p>👈 请在左侧输入小说内容，点击"开始续写"按钮</p>
-                        <br>
-                        <p><small>系统将根据文本长度自动选择处理方式</small></p>
+            <button class="secondary" type="button" onclick="newProject()">＋ 新建小说</button>
+            <div class="sidebar-title">
+                <span>我的项目</span>
+                <span id="project-count">0</span>
+            </div>
+            <div id="project-list" class="project-list"></div>
+        </aside>
+
+        <section class="editor">
+            <h2 id="editor-title">新建小说项目</h2>
+            <form id="novel-form">
+                <div class="field">
+                    <label for="title">小说名称</label>
+                    <input id="title" name="title" maxlength="80" placeholder="未填写时自动使用原文首行">
+                </div>
+
+                <div class="field">
+                    <label for="text-input">原文</label>
+                    <textarea id="text-input" name="text_input" placeholder="粘贴已有小说内容。长文本会分块建立人物、世界观、时间线和伏笔记忆。"></textarea>
+                </div>
+
+                <div class="field">
+                    <input id="file-input" type="file" name="file" accept=".txt,.md">
+                    <label class="file-box" for="file-input" id="file-label">选择 TXT / Markdown 文件</label>
+                </div>
+
+                <div class="field">
+                    <label for="requirements">长期写作要求</label>
+                    <textarea id="requirements" name="requirements" placeholder="例如：保持第三人称限知视角；减少华丽比喻；本章推进主角调查。"></textarea>
+                </div>
+
+                <div class="inline">
+                    <div class="field">
+                        <label for="word-limit">目标字数</label>
+                        <input id="word-limit" name="word_limit" type="number" value="1000" min="100" max="10000">
+                    </div>
+                    <div class="field">
+                        <label for="writing-mode">写作模式</label>
+                        <select id="writing-mode" name="writing_mode">
+                            <option value="standard">标准：规划并检查</option>
+                            <option value="quick">快速：直接续写</option>
+                        </select>
                     </div>
                 </div>
-                
-                <div class="save-section" id="saveSection" style="display: none;">
-                    <button onclick="saveResult()" class="save-btn">
-                        💾 保存续写结果为TXT文件
-                    </button>
+                <small class="hint">
+                    超过 {{ "{:,}".format(text_length_threshold) }} 字符时自动分块总结。标准模式会先规划情节，并在生成后给出一致性检查结果。
+                </small>
+
+                <div class="actions">
+                    <button id="start-btn" type="submit">开始续写</button>
+                    <button id="continue-btn" type="button" class="secondary" onclick="continueWriting()" hidden>继续续写</button>
+                    <button id="restart-btn" type="button" class="secondary" onclick="restartWriting()" hidden>重写最后一段</button>
+                    <button id="export-btn" type="button" class="secondary" onclick="exportProject()" hidden>导出 Markdown</button>
+                    <button id="delete-btn" type="button" class="danger" onclick="deleteProject()" hidden>删除项目</button>
                 </div>
+            </form>
+        </section>
+
+        <section class="manuscript">
+            <div id="status" class="status"></div>
+            <div id="output" class="empty">
+                新建小说项目，或从左侧打开已有项目。<br>
+                每次重写都会保留旧版本，可随时恢复。
             </div>
-        </div>
-    </div>
+            <details id="versions" class="versions" hidden>
+                <summary>查看生成版本历史</summary>
+                <div id="version-list"></div>
+            </details>
+        </section>
+    </main>
 
     <script>
-        let currentSessionId = null;
+        let currentProjectId = null;
+        let currentProject = null;
         let eventSource = null;
-        
-        function switchTab(tabName) {
-            // 隐藏所有标签页内容
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
+        let liveChapter = null;
+        let streamCompleted = false;
+
+        const $ = id => document.getElementById(id);
+
+        function setBusy(busy) {
+            ["start-btn", "continue-btn", "restart-btn", "delete-btn"].forEach(id => {
+                $(id).disabled = busy;
             });
-            
-            // 移除所有按钮的激活状态
-            document.querySelectorAll('.tab-button').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            
-            // 显示选中的标签页
-            document.getElementById(tabName + '-tab').classList.add('active');
-            event.target.classList.add('active');
-            
-            // 清空另一个标签页的内容
-            if (tabName === 'text') {
-                document.getElementById('file-input').value = '';
-            } else {
-                document.getElementById('text-input').value = '';
-            }
         }
 
-        function closeEventSource() {
+        function showStatus(message, error = false) {
+            const element = $("status");
+            element.textContent = message;
+            element.className = `status visible${error ? " error" : ""}`;
+        }
+
+        function hideStatus() {
+            $("status").className = "status";
+        }
+
+        function closeStream() {
             if (eventSource) {
                 eventSource.close();
                 eventSource = null;
             }
         }
 
-        function startStreaming(streamUrl) {
-            closeEventSource();
-            
-            eventSource = new EventSource(streamUrl);
-            
-            eventSource.onmessage = function(event) {
+        async function api(url, options = {}) {
+            const response = await fetch(url, options);
+            const body = await response.json().catch(() => ({}));
+            if (!response.ok || body.success === false) {
+                throw new Error(body.error || `请求失败（${response.status}）`);
+            }
+            return body;
+        }
+
+        async function loadProjects() {
+            const body = await api("/api/projects");
+            $("project-count").textContent = body.projects.length;
+            const list = $("project-list");
+            list.replaceChildren();
+            body.projects.forEach(project => {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = `project-item${project.id === currentProjectId ? " active" : ""}`;
+                const title = document.createElement("span");
+                title.textContent = project.title;
+                const updated = document.createElement("small");
+                updated.textContent = new Date(project.updated_at).toLocaleString();
+                button.append(title, updated);
+                button.onclick = () => loadProject(project.id);
+                list.appendChild(button);
+            });
+        }
+
+        async function loadProject(projectId) {
+            closeStream();
+            const body = await api(`/api/projects/${projectId}`);
+            currentProjectId = projectId;
+            currentProject = body.project;
+            $("editor-title").textContent = body.project.title;
+            $("title").value = body.project.title;
+            $("text-input").value = body.project.original_text;
+            $("text-input").disabled = true;
+            $("file-input").disabled = true;
+            $("requirements").value = body.project.requirements;
+            $("word-limit").value = body.project.word_limit;
+            $("writing-mode").value = body.project.writing_mode;
+            $("start-btn").hidden = true;
+            ["continue-btn", "restart-btn", "export-btn", "delete-btn"].forEach(id => {
+                $(id).hidden = false;
+            });
+            renderProject(body.project);
+            hideStatus();
+            await loadProjects();
+        }
+
+        function renderProject(project) {
+            const output = $("output");
+            output.className = "";
+            output.replaceChildren();
+            if (!project.active_generations.length) {
+                output.className = "empty";
+                output.textContent = "项目已创建，正在等待第一次续写。";
+            }
+            project.active_generations.forEach(generation => {
+                output.appendChild(chapterElement(generation));
+            });
+
+            const versions = project.generation_history;
+            $("versions").hidden = versions.length === 0;
+            const list = $("version-list");
+            list.replaceChildren();
+            versions.forEach(version => {
+                const row = document.createElement("div");
+                row.className = "version-row";
+                const label = document.createElement("strong");
+                label.textContent = `第 ${version.position} 段 · 版本 ${version.version}`;
+                const excerpt = document.createElement("span");
+                excerpt.className = "excerpt";
+                excerpt.textContent = version.content.replace(/\s+/g, " ").slice(0, 90);
+                const restore = document.createElement("button");
+                restore.type = "button";
+                restore.className = "secondary";
+                restore.textContent = version.is_active ? "当前版本" : "恢复";
+                restore.disabled = Boolean(version.is_active);
+                restore.onclick = () => restoreVersion(version.id);
+                row.append(label, excerpt, restore);
+                list.appendChild(row);
+            });
+        }
+
+        function chapterElement(generation) {
+            const article = document.createElement("article");
+            article.className = "chapter";
+            const head = document.createElement("div");
+            head.className = "chapter-head";
+            head.textContent = `续写第 ${generation.position} 段 · 版本 ${generation.version}`;
+            const content = document.createElement("div");
+            content.className = "chapter-content";
+            content.textContent = generation.content;
+            article.append(head, content);
+            if (generation.consistency_report) {
+                const review = document.createElement("div");
+                review.className = "review";
+                review.textContent = `一致性检查\n${generation.consistency_report}`;
+                article.appendChild(review);
+            }
+            return article;
+        }
+
+        function newProject() {
+            closeStream();
+            currentProjectId = null;
+            currentProject = null;
+            $("novel-form").reset();
+            $("word-limit").value = "1000";
+            $("writing-mode").value = "standard";
+            $("text-input").disabled = false;
+            $("file-input").disabled = false;
+            $("editor-title").textContent = "新建小说项目";
+            $("file-label").textContent = "选择 TXT / Markdown 文件";
+            $("start-btn").hidden = false;
+            ["continue-btn", "restart-btn", "export-btn", "delete-btn"].forEach(id => {
+                $(id).hidden = true;
+            });
+            $("output").className = "empty";
+            $("output").textContent = "填写原文和创作要求后开始续写。";
+            $("versions").hidden = true;
+            hideStatus();
+            loadProjects().catch(error => showStatus(error.message, true));
+        }
+
+        function settingsQuery() {
+            const params = new URLSearchParams({
+                word_limit: $("word-limit").value,
+                requirements: $("requirements").value,
+                writing_mode: $("writing-mode").value
+            });
+            return params.toString();
+        }
+
+        function startStreaming(url, replaceLast = false) {
+            closeStream();
+            setBusy(true);
+            streamCompleted = false;
+            liveChapter = document.createElement("article");
+            liveChapter.className = "chapter";
+            const head = document.createElement("div");
+            head.className = "chapter-head";
+            head.textContent = replaceLast ? "正在生成新的替代版本…" : "正在生成…";
+            const content = document.createElement("div");
+            content.className = "chapter-content";
+            liveChapter.append(head, content);
+            $("output").className = "";
+            $("output").appendChild(liveChapter);
+            liveChapter.scrollIntoView({behavior: "smooth", block: "start"});
+
+            eventSource = new EventSource(url);
+            eventSource.onmessage = async event => {
                 const data = JSON.parse(event.data);
-                
-                if (data.type === 'status') {
-                    // 显示状态信息
-                    updateStatus(data.content);
-                } else if (data.type === 'content') {
-                    // 流式显示内容
-                    appendContent(data.content);
-                } else if (data.type === 'complete') {
-                    // 完成
-                    closeEventSource();
-                    showControls();
+                if (data.type === "status") {
+                    showStatus(data.content);
+                } else if (data.type === "content") {
+                    content.textContent += data.content;
+                } else if (data.type === "review") {
+                    const review = document.createElement("div");
+                    review.className = "review";
+                    review.textContent = `一致性检查\n${data.content}`;
+                    liveChapter.appendChild(review);
+                } else if (data.type === "complete") {
+                    streamCompleted = true;
+                    closeStream();
+                    setBusy(false);
                     hideStatus();
-                    enableSubmitButton();
-                    enableControlButtons();
-                } else if (data.type === 'error') {
-                    // 错误
-                    closeEventSource();
-                    showError(data.content);
-                    enableSubmitButton();
+                    await loadProject(currentProjectId);
+                } else if (data.type === "error") {
+                    closeStream();
+                    setBusy(false);
+                    liveChapter.remove();
+                    showStatus(data.content, true);
                 }
             };
-            
-            eventSource.onerror = function() {
-                closeEventSource();
-                showError('流式输出连接错误，请重试');
-                enableSubmitButton();
+            eventSource.onerror = () => {
+                if (streamCompleted) return;
+                closeStream();
+                setBusy(false);
+                showStatus("流式连接中断。已成功保存的版本不会丢失，请重新打开项目确认。", true);
             };
         }
 
-        function updateStatus(message) {
-            const output = document.getElementById('output');
-            let statusDiv = document.getElementById('status-message');
-            
-            if (!statusDiv) {
-                statusDiv = document.createElement('div');
-                statusDiv.id = 'status-message';
-                statusDiv.className = 'status-message';
-                // 如果没有结果容器，先清空输出区域
-                if (!document.getElementById('result-content')) {
-                    output.innerHTML = '';
-                }
-                output.insertBefore(statusDiv, output.firstChild);
-            }
-            
-            statusDiv.textContent = message;
-        }
-
-        function hideStatus() {
-            const statusDiv = document.getElementById('status-message');
-            if (statusDiv) {
-                statusDiv.style.display = 'none';
-            }
-        }
-
-        function appendContent(content) {
-            const output = document.getElementById('output');
-            let resultDiv = document.getElementById('result-content');
-            
-            if (!resultDiv) {
-                // 创建结果容器
-                resultDiv = document.createElement('div');
-                resultDiv.id = 'result-content';
-                resultDiv.className = 'result';
-                output.appendChild(resultDiv);
-            }
-            
-            resultDiv.textContent += content;
-            // 自动滚动到底部
-            resultDiv.scrollTop = resultDiv.scrollHeight;
-        }
-
-        function showControls() {
-            document.getElementById('continueBtn').style.display = 'inline-block';
-            document.getElementById('restartBtn').style.display = 'inline-block';
-            document.getElementById('newTaskBtn').style.display = 'inline-block';
-            document.getElementById('saveSection').style.display = 'block';
-            
-            // 更改开始续写按钮为新任务
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.style.display = 'none';
-        }
-
-        function hideControls() {
-            document.getElementById('continueBtn').style.display = 'none';
-            document.getElementById('restartBtn').style.display = 'none';
-            document.getElementById('newTaskBtn').style.display = 'none';
-            document.getElementById('saveSection').style.display = 'none';
-            
-            // 显示开始续写按钮
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.style.display = 'inline-block';
-        }
-
-        function showError(message) {
-            const output = document.getElementById('output');
-            output.innerHTML = '<div class="error">❌ ' + message + '</div>';
-            hideControls();
-        }
-
-        function disableSubmitButton() {
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = true;
-            submitBtn.textContent = '处理中...';
-        }
-
-        function enableSubmitButton() {
-            const submitBtn = document.getElementById('submitBtn');
-            submitBtn.disabled = false;
-            submitBtn.textContent = '🚀 开始续写';
-        }
-
-        function disableControlButtons() {
-            document.getElementById('continueBtn').disabled = true;
-            document.getElementById('restartBtn').disabled = true;
-            document.getElementById('newTaskBtn').disabled = true;
-        }
-
-        function enableControlButtons() {
-            document.getElementById('continueBtn').disabled = false;
-            document.getElementById('restartBtn').disabled = false;
-            document.getElementById('newTaskBtn').disabled = false;
-        }
-        
-        function newTask() {
-            if (currentSessionId) {
-                // 调用后端清除会话
-                fetch(`/clear/${currentSessionId}`, {
-                    method: 'POST'
-                }).then(response => response.json())
-                .then(result => {
-                    console.log('会话清除结果:', result);
-                }).catch(error => {
-                    console.error('清除会话错误:', error);
-                });
-            }
-            
-            // 清除当前会话
-            currentSessionId = null;
-            
-            // 清空输出区域
-            document.getElementById('output').innerHTML = '<div style="text-align: center; padding: 40px; color: #6c757d;"><p>👈 请在左侧输入小说内容，点击"开始续写"按钮</p><br><p><small>系统将根据文本长度自动选择处理方式</small></p></div>';
-            
-            // 隐藏控制按钮，显示开始续写按钮
-            hideControls();
-            
-            // 重置表单（可选）
-            // document.getElementById('text-input').value = '';
-            // document.getElementById('requirements').value = '';
-            // document.getElementById('word-limit').value = '1000';
-        }
-
-        document.getElementById('novelForm').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            
-            const formData = new FormData(this);
-            
-            // 检查是否有输入内容
-            const textInput = formData.get('text_input');
-            const fileInput = formData.get('file');
-            
-            if (!textInput.trim() && (!fileInput || !fileInput.name)) {
-                showError('请输入小说内容或上传文件！');
-                return;
-            }
-            
-            // 禁用按钮和隐藏控制面板
-            disableSubmitButton();
-            hideControls();
-            
+        $("novel-form").addEventListener("submit", async event => {
+            event.preventDefault();
+            setBusy(true);
+            hideStatus();
             try {
-                // 首先发送请求获取会话 ID
-                const response = await fetch('/process', {
-                    method: 'POST',
-                    body: formData
+                const body = await api("/process", {
+                    method: "POST",
+                    body: new FormData(event.currentTarget)
                 });
-                
-                const result = await response.json();
-                
-                if (result.success) {
-                    currentSessionId = result.session_id;
-                    
-                    // 显示文本信息
-                    let infoHtml = '';
-                    if (result.used_summary) {
-                        infoHtml = '<div class="info">📄 文本长度超过100k字符，将先进行智能总结再续写</div>';
-                    } else {
-                        infoHtml = '<div class="info">📝 文本长度适中，直接进行续写</div>';
-                    }
-                    
-                    infoHtml += `<div class="info">📏 原文字符数：${result.text_length.toLocaleString()}</div>`;
-                    
-                    document.getElementById('output').innerHTML = infoHtml;
-                    
-                    // 开始流式输出
-                    startStreaming(`/stream/${currentSessionId}`);
-                } else {
-                    showError(result.error);
-                    enableSubmitButton();
-                }
+                currentProjectId = body.project_id;
+                await loadProjects();
+                $("output").replaceChildren();
+                startStreaming(`/stream/${currentProjectId}`);
             } catch (error) {
-                showError('网络错误：' + error.message);
-                enableSubmitButton();
+                setBusy(false);
+                showStatus(error.message, true);
             }
         });
 
         function continueWriting() {
-            if (!currentSessionId) {
-                showError('会话已过期，请重新开始');
-                return;
-            }
-            
-            // 获取最新的字数限制和额外指令
-            const wordLimit = document.getElementById('word-limit').value || '1000';
-            const requirements = document.getElementById('requirements').value || '';
-            
-            disableControlButtons();
-            startStreaming(`/continue/${currentSessionId}?word_limit=${encodeURIComponent(wordLimit)}&requirements=${encodeURIComponent(requirements)}`);
+            if (!currentProjectId) return;
+            startStreaming(`/continue/${currentProjectId}?${settingsQuery()}`);
         }
 
         function restartWriting() {
-            if (!currentSessionId) {
-                showError('会话已过期，请重新开始');
-                return;
-            }
-            
-            // 移除最后一段续写内容（在最后一个分割线之后的内容）
-            const resultDiv = document.getElementById('result-content');
-            if (resultDiv) {
-                const content = resultDiv.textContent;
-                const separators = content.split('\n' + '-'.repeat(50) + '\n');
-                if (separators.length > 1) {
-                    // 移除最后一段，保留其他部分
-                    separators.pop();
-                    resultDiv.textContent = separators.join('\n' + '-'.repeat(50) + '\n');
-                    if (separators.length > 1) {
-                        // 如果还有其他段落，添加结尾分割线
-                        resultDiv.textContent += '\n' + '-'.repeat(50) + '\n';
-                    }
-                }
-            }
-            
-            // 获取最新的字数限制和额外指令
-            const wordLimit = document.getElementById('word-limit').value || '1000';
-            const requirements = document.getElementById('requirements').value || '';
-            
-            disableControlButtons();
-            hideControls();
-            startStreaming(`/restart/${currentSessionId}?word_limit=${encodeURIComponent(wordLimit)}&requirements=${encodeURIComponent(requirements)}`);
+            if (!currentProjectId) return;
+            startStreaming(`/restart/${currentProjectId}?${settingsQuery()}`, true);
         }
 
-        // 文件拖拽功能
-        const fileLabel = document.querySelector('.file-upload-label');
-        const fileInput = document.getElementById('file-input');
-
-        fileLabel.addEventListener('dragover', function(e) {
-            e.preventDefault();
-            this.style.backgroundColor = '#e9ecef';
-            this.style.borderColor = '#4facfe';
-        });
-
-        fileLabel.addEventListener('dragleave', function(e) {
-            e.preventDefault();
-            this.style.backgroundColor = '#f8f9fa';
-            this.style.borderColor = '#dee2e6';
-        });
-
-        fileLabel.addEventListener('drop', function(e) {
-            e.preventDefault();
-            this.style.backgroundColor = '#f8f9fa';
-            this.style.borderColor = '#dee2e6';
-            
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                fileInput.files = files;
-                this.innerHTML = `📁 已选择: ${files[0].name}`;
+        async function restoreVersion(generationId) {
+            try {
+                await api(`/api/projects/${currentProjectId}/restore/${generationId}`, {
+                    method: "POST"
+                });
+                await loadProject(currentProjectId);
+            } catch (error) {
+                showStatus(error.message, true);
             }
-        });
+        }
 
-        fileInput.addEventListener('change', function() {
-            if (this.files.length > 0) {
-                fileLabel.innerHTML = `📁 已选择: ${this.files[0].name}`;
-            } else {
-                fileLabel.innerHTML = '📁 点击选择文件或拖拽到此处<br><small>支持 .txt 和 .md 格式</small>';
+        async function deleteProject() {
+            if (!currentProjectId || !confirm("确定删除该小说项目及全部版本吗？")) return;
+            try {
+                await api(`/api/projects/${currentProjectId}`, {method: "DELETE"});
+                newProject();
+            } catch (error) {
+                showStatus(error.message, true);
             }
-        });
-        
-        // 保存结果为TXT文件
-        function saveResult() {
-            const resultContent = document.getElementById('result-content');
-            if (!resultContent) {
-                alert('没有找到续写内容');
-                return;
-            }
-            
-            const content = resultContent.textContent || resultContent.innerText;
-            const timestamp = new Date().toISOString().slice(0, 19).replace(/:/g, '-');
-            const filename = `小说续写_${timestamp}.txt`;
-            
-            // 创建Blob对象
-            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
-            
-            // 创建下载链接
-            const link = document.createElement('a');
+        }
+
+        function exportProject() {
+            if (!currentProject) return;
+            const generated = currentProject.active_generations
+                .map((item, index) => `## 续写 ${index + 1}\n\n${item.content}`)
+                .join("\n\n");
+            const content = `# ${currentProject.title}\n\n## 原文\n\n${currentProject.original_text}\n\n${generated}\n`;
+            const blob = new Blob([content], {type: "text/markdown;charset=utf-8"});
+            const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            
-            // 触发下载
-            document.body.appendChild(link);
+            link.download = `${currentProject.title.replace(/[\\/:*?"<>|]/g, "_")}.md`;
             link.click();
-            document.body.removeChild(link);
-            
-            // 清理对象URL
             URL.revokeObjectURL(link.href);
         }
-        
-        // 页面关闭时清理资源
-        window.addEventListener('beforeunload', function() {
-            closeEventSource();
+
+        $("file-input").addEventListener("change", event => {
+            const file = event.target.files[0];
+            $("file-label").textContent = file ? `已选择：${file.name}` : "选择 TXT / Markdown 文件";
         });
+
+        window.addEventListener("beforeunload", closeStream);
+        loadProjects().catch(error => showStatus(error.message, true));
     </script>
 </body>
 </html>
