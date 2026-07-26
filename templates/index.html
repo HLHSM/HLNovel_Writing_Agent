@@ -418,13 +418,16 @@
         let currentProject = null;
         let eventSource = null;
         let liveChapter = null;
+        let streamSequence = 0;
         let streamCompleted = false;
+        let busy = false;
 
         const $ = id => document.getElementById(id);
 
-        function setBusy(busy) {
+        function setBusy(value) {
+            busy = value;
             ["start-btn", "continue-btn", "restart-btn", "delete-btn"].forEach(id => {
-                $(id).disabled = busy;
+                $(id).disabled = value;
             });
         }
 
@@ -443,6 +446,14 @@
                 eventSource.close();
                 eventSource = null;
             }
+        }
+
+        function cancelActiveStream() {
+            streamSequence += 1;
+            closeStream();
+            streamCompleted = false;
+            liveChapter = null;
+            setBusy(false);
         }
 
         async function api(url, options = {}) {
@@ -474,7 +485,10 @@
         }
 
         async function loadProject(projectId) {
-            closeStream();
+            if (busy && !confirm("当前续写仍在生成，确定停止并切换项目吗？")) {
+                return;
+            }
+            cancelActiveStream();
             const body = await api(`/api/projects/${projectId}`);
             currentProjectId = projectId;
             currentProject = body.project;
@@ -550,7 +564,10 @@
         }
 
         function newProject() {
-            closeStream();
+            if (busy && !confirm("当前续写仍在生成，确定停止并新建小说吗？")) {
+                return;
+            }
+            cancelActiveStream();
             currentProjectId = null;
             currentProject = null;
             $("novel-form").reset();
@@ -581,9 +598,12 @@
         }
 
         function startStreaming(url, replaceLast = false) {
+            if (busy) return;
             closeStream();
             setBusy(true);
             streamCompleted = false;
+            const streamId = ++streamSequence;
+            const streamProjectId = currentProjectId;
             liveChapter = document.createElement("article");
             liveChapter.className = "chapter";
             const head = document.createElement("div");
@@ -598,6 +618,10 @@
 
             eventSource = new EventSource(url);
             eventSource.onmessage = async event => {
+                if (
+                    streamId !== streamSequence ||
+                    streamProjectId !== currentProjectId
+                ) return;
                 const data = JSON.parse(event.data);
                 if (data.type === "status") {
                     showStatus(data.content);
@@ -613,18 +637,25 @@
                     closeStream();
                     setBusy(false);
                     hideStatus();
-                    await loadProject(currentProjectId);
+                    await loadProject(streamProjectId);
                 } else if (data.type === "error") {
                     closeStream();
                     setBusy(false);
                     liveChapter.remove();
+                    await loadProject(streamProjectId);
                     showStatus(data.content, true);
                 }
             };
-            eventSource.onerror = () => {
-                if (streamCompleted) return;
+            eventSource.onerror = async () => {
+                if (
+                    streamCompleted ||
+                    streamId !== streamSequence ||
+                    streamProjectId !== currentProjectId
+                ) return;
                 closeStream();
                 setBusy(false);
+                liveChapter?.remove();
+                await loadProject(streamProjectId);
                 showStatus("流式连接中断。已成功保存的版本不会丢失，请重新打开项目确认。", true);
             };
         }
@@ -641,6 +672,7 @@
                 currentProjectId = body.project_id;
                 await loadProjects();
                 $("output").replaceChildren();
+                setBusy(false);
                 startStreaming(`/stream/${currentProjectId}`);
             } catch (error) {
                 setBusy(false);
