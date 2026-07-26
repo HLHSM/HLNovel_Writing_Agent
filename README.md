@@ -107,10 +107,10 @@ Linux/macOS 示例：
 
 ```bash
 export NOVEL_SECRET_KEY="随机生成的长字符串"
-export SUMMARY_MODEL="Qwen/Qwen3-30B-A3B-Instruct-2507"
+export SUMMARY_MODEL="deepseek-ai/DeepSeek-V3.2"
 export SUMMARY_MODEL_SERVER="https://api.siliconflow.cn/v1"
 export SUMMARY_API_KEY="your-summary-key"
-export WRITING_MODEL="deepseek/deepseek-chat-v3.1:free"
+export WRITING_MODEL="deepseek-ai/DeepSeek-V3.2"
 export WRITING_MODEL_SERVER="https://openrouter.ai/api/v1"
 export WRITING_API_KEY="your-writing-key"
 ```
@@ -119,10 +119,10 @@ Windows PowerShell 示例：
 
 ```powershell
 $env:NOVEL_SECRET_KEY="随机生成的长字符串"
-$env:SUMMARY_MODEL="Qwen/Qwen3-30B-A3B-Instruct-2507"
+$env:SUMMARY_MODEL="deepseek-ai/DeepSeek-V3.2"
 $env:SUMMARY_MODEL_SERVER="https://api.siliconflow.cn/v1"
 $env:SUMMARY_API_KEY="your-summary-key"
-$env:WRITING_MODEL="deepseek/deepseek-chat-v3.1:free"
+$env:WRITING_MODEL="deepseek-ai/DeepSeek-V3.2"
 $env:WRITING_MODEL_SERVER="https://openrouter.ai/api/v1"
 $env:WRITING_API_KEY="your-writing-key"
 ```

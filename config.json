@@ -1,7 +1,7 @@
 {
   "llm_config": {
     "summary_bot": {
-      "model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
+      "model": "deepseek-ai/DeepSeek-V3.2",
       "model_server": "",
       "api_key": "",
       "model_env": "SUMMARY_MODEL",
@@ -14,7 +14,7 @@
       }
     },
     "writing_bot": {
-      "model": "deepseek/deepseek-chat-v3.1:free",
+      "model": "deepseek-ai/DeepSeek-V3.2",
       "model_server": "",
       "api_key": "",
       "model_env": "WRITING_MODEL",
