@@ -18,13 +18,18 @@ def _resolve_path(value: str, base_dir: Path) -> str:
 
 
 def _resolve_bot(bot_config: dict[str, Any]) -> dict[str, Any]:
+    """Resolve one bot, preferring non-empty environment values over JSON."""
     resolved = dict(bot_config)
-    server_env = resolved.pop("model_server_env", "")
-    key_env = resolved.pop("api_key_env", "")
-    if server_env:
-        resolved["model_server"] = os.getenv(server_env, resolved.get("model_server", ""))
-    if key_env:
-        resolved["api_key"] = os.getenv(key_env, resolved.get("api_key", ""))
+    server_env = str(resolved.pop("model_server_env", "") or "").strip()
+    key_env = str(resolved.pop("api_key_env", "") or "").strip()
+
+    json_server = str(resolved.get("model_server", "") or "").strip()
+    json_key = str(resolved.get("api_key", "") or "").strip()
+    env_server = str(os.getenv(server_env, "") or "").strip() if server_env else ""
+    env_key = str(os.getenv(key_env, "") or "").strip() if key_env else ""
+
+    resolved["model_server"] = env_server or json_server
+    resolved["api_key"] = env_key or json_key
     return resolved
 
 
