@@ -5,6 +5,19 @@ import io
 from .conftest import consume_stream, create_project
 
 
+def test_index_has_responsive_chat_workspace(client):
+    response = client.get("/")
+    html = response.get_data(as_text=True)
+
+    assert response.status_code == 200
+    assert 'class="app-shell"' in html
+    assert 'id="sidebar"' in html
+    assert 'id="thread-view"' in html
+    assert 'id="composer-area"' in html
+    assert 'id="instruction-input"' in html
+    assert 'id="theme-label"' in html
+
+
 def test_initial_word_limit_is_persisted_and_used(client, app):
     project_id = create_project(client, word_limit=2345)
     stream = consume_stream(client, f"/stream/{project_id}")
