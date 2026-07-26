@@ -1134,6 +1134,7 @@
         let currentChapterId = null;
         let editorBaseline = "";
         let eventSource = null;
+        let streamSequence = 0;
         let streamCompleted = false;
         let busy = false;
         let toastTimer = null;
@@ -1213,6 +1214,14 @@
             }
         }
 
+        function cancelActiveStream() {
+            streamSequence += 1;
+            closeStream();
+            streamCompleted = false;
+            setBusy(false);
+            $("chapter-content")?.classList.remove("generating");
+        }
+
         async function api(url, options = {}) {
             const response = await fetch(url, options);
             const body = await response.json().catch(() => ({}));
@@ -1280,8 +1289,10 @@
         }
 
         function newProject() {
-            closeStream();
-            setBusy(false);
+            if (busy && !confirm("当前章节仍在生成，确定停止并新建小说吗？")) {
+                return;
+            }
+            cancelActiveStream();
             currentProjectId = null;
             currentProject = null;
             currentChapterId = null;
@@ -1354,7 +1365,10 @@
         }
 
         async function loadProject(projectId, preferredChapterId = currentChapterId) {
-            closeStream();
+            if (busy && !confirm("当前章节仍在生成，确定停止并切换项目吗？")) {
+                return;
+            }
+            cancelActiveStream();
             const body = await api(`/api/projects/${projectId}`);
             currentProjectId = projectId;
             currentProject = body.project;
@@ -1554,6 +1568,8 @@
             closeStream();
             setBusy(true);
             streamCompleted = false;
+            const streamId = ++streamSequence;
+            const streamProjectId = currentProjectId;
             const previousChapterId = currentChapterId;
             showToast(
                 replaceCurrent ? "正在生成当前章节的新版本…" : "正在准备下一章…",
@@ -1571,6 +1587,10 @@
 
             eventSource = new EventSource(url);
             eventSource.onmessage = async event => {
+                if (
+                    streamId !== streamSequence ||
+                    streamProjectId !== currentProjectId
+                ) return;
                 const data = JSON.parse(event.data);
                 if (data.type === "status") {
                     showToast(data.content, false, true);
@@ -1583,7 +1603,7 @@
                     setBusy(false);
                     $("chapter-content").classList.remove("generating");
                     await loadProject(
-                        currentProjectId,
+                        streamProjectId,
                         data.chapter_id || previousChapterId
                     );
                     showToast("章节生成完成");
@@ -1591,17 +1611,21 @@
                     closeStream();
                     setBusy(false);
                     $("chapter-content").classList.remove("generating");
-                    await loadProject(currentProjectId, previousChapterId);
+                    await loadProject(streamProjectId, previousChapterId);
                     showToast(data.content, true, true);
                 }
             };
 
             eventSource.onerror = async () => {
-                if (streamCompleted) return;
+                if (
+                    streamCompleted ||
+                    streamId !== streamSequence ||
+                    streamProjectId !== currentProjectId
+                ) return;
                 closeStream();
                 setBusy(false);
                 $("chapter-content").classList.remove("generating");
-                await loadProject(currentProjectId, previousChapterId);
+                await loadProject(streamProjectId, previousChapterId);
                 showToast("连接中断，请重新打开章节确认保存状态。", true, true);
             };
         }
