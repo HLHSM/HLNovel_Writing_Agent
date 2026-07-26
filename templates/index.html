@@ -977,6 +977,7 @@
         let currentProject = null;
         let eventSource = null;
         let liveMessage = null;
+        let streamSequence = 0;
         let streamCompleted = false;
         let busy = false;
         let toastTimer = null;
@@ -1056,6 +1057,14 @@
             }
         }
 
+        function cancelActiveStream() {
+            streamSequence += 1;
+            closeStream();
+            streamCompleted = false;
+            liveMessage = null;
+            setBusy(false);
+        }
+
         async function api(url, options = {}) {
             const response = await fetch(url, options);
             const body = await response.json().catch(() => ({}));
@@ -1100,7 +1109,10 @@
         }
 
         async function loadProject(projectId) {
-            closeStream();
+            if (busy && !confirm("当前续写仍在生成，确定停止并切换项目吗？")) {
+                return;
+            }
+            cancelActiveStream();
             const body = await api(`/api/projects/${projectId}`);
             currentProjectId = projectId;
             currentProject = body.project;
@@ -1246,8 +1258,10 @@
         }
 
         function newProject() {
-            closeStream();
-            setBusy(false);
+            if (busy && !confirm("当前续写仍在生成，确定停止并新建小说吗？")) {
+                return;
+            }
+            cancelActiveStream();
             currentProjectId = null;
             currentProject = null;
             $("new-project-form").reset();
@@ -1298,6 +1312,8 @@
             closeStream();
             setBusy(true);
             streamCompleted = false;
+            const streamId = ++streamSequence;
+            const streamProjectId = currentProjectId;
             showToast(replaceLast ? "正在生成新的版本…" : "正在准备续写…", false, true);
 
             const live = liveMessageElement(replaceLast);
@@ -1308,6 +1324,10 @@
 
             eventSource = new EventSource(url);
             eventSource.onmessage = async event => {
+                if (
+                    streamId !== streamSequence ||
+                    streamProjectId !== currentProjectId
+                ) return;
                 const data = JSON.parse(event.data);
                 if (data.type === "status") {
                     showToast(data.content, false, true);
@@ -1322,20 +1342,26 @@
                     closeStream();
                     setBusy(false);
                     hideToast();
-                    await loadProject(currentProjectId);
+                    await loadProject(streamProjectId);
                 } else if (data.type === "error") {
                     closeStream();
                     setBusy(false);
                     live.article.remove();
+                    await loadProject(streamProjectId);
                     showToast(data.content, true, true);
                 }
             };
 
-            eventSource.onerror = () => {
-                if (streamCompleted) return;
+            eventSource.onerror = async () => {
+                if (
+                    streamCompleted ||
+                    streamId !== streamSequence ||
+                    streamProjectId !== currentProjectId
+                ) return;
                 closeStream();
                 setBusy(false);
                 live.article.remove();
+                await loadProject(streamProjectId);
                 showToast("连接中断。已保存的版本不会丢失，请重新打开项目确认。", true, true);
             };
         }
