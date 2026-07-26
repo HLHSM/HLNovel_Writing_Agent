@@ -113,6 +113,7 @@ class NovelDatabase:
                 """
             )
             self._migrate_legacy_projects(connection)
+            self._split_unedited_single_source_projects(connection)
 
     @staticmethod
     def _migrate_legacy_projects(connection: sqlite3.Connection) -> None:
@@ -243,6 +244,108 @@ class NovelDatabase:
                 ),
             )
         return len(chapters)
+
+    @staticmethod
+    def _split_unedited_single_source_projects(
+        connection: sqlite3.Connection,
+    ) -> None:
+        """Upgrade earlier one-source chapter projects without losing edits."""
+        projects = connection.execute(
+            """
+            SELECT project_id
+            FROM chapters
+            GROUP BY project_id
+            HAVING SUM(CASE WHEN kind = 'source' THEN 1 ELSE 0 END) = 1
+            """
+        ).fetchall()
+        for project in projects:
+            source = connection.execute(
+                """
+                SELECT c.*, v.id AS version_id, v.content, v.source_type
+                FROM chapters c
+                JOIN chapter_versions v
+                  ON v.chapter_id = c.id AND v.is_active = 1
+                WHERE c.project_id = ? AND c.kind = 'source'
+                """,
+                (project["project_id"],),
+            ).fetchone()
+            if not source or source["source_type"] != "import":
+                continue
+            version_count = connection.execute(
+                """
+                SELECT COUNT(*) AS count
+                FROM chapter_versions WHERE chapter_id = ?
+                """,
+                (source["id"],),
+            ).fetchone()
+            if int(version_count["count"]) != 1:
+                continue
+
+            parsed = parse_novel_chapters(source["content"], source["title"])
+            if len(parsed) <= 1:
+                continue
+
+            rows = connection.execute(
+                """
+                SELECT id, kind FROM chapters
+                WHERE project_id = ? ORDER BY position
+                """,
+                (project["project_id"],),
+            ).fetchall()
+            for temporary_position, row in enumerate(rows, start=1):
+                connection.execute(
+                    "UPDATE chapters SET position = ? WHERE id = ?",
+                    (-temporary_position, row["id"]),
+                )
+
+            now = utc_now()
+            connection.execute(
+                """
+                UPDATE chapters
+                SET position = 1, title = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (parsed[0].title, now, source["id"]),
+            )
+            connection.execute(
+                "UPDATE chapter_versions SET content = ? WHERE id = ?",
+                (parsed[0].content, source["version_id"]),
+            )
+
+            for position, chapter in enumerate(parsed[1:], start=2):
+                chapter_id = str(uuid.uuid4())
+                connection.execute(
+                    """
+                    INSERT INTO chapters (
+                        id, project_id, position, title, kind,
+                        created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, 'source', ?, ?)
+                    """,
+                    (
+                        chapter_id,
+                        project["project_id"],
+                        position,
+                        chapter.title,
+                        now,
+                        now,
+                    ),
+                )
+                connection.execute(
+                    """
+                    INSERT INTO chapter_versions (
+                        id, chapter_id, version, content, source_type,
+                        is_active, created_at
+                    ) VALUES (?, ?, 1, ?, 'import', 1, ?)
+                    """,
+                    (str(uuid.uuid4()), chapter_id, chapter.content, now),
+                )
+
+            draft_rows = [row for row in rows if row["kind"] != "source"]
+            for offset, row in enumerate(draft_rows, start=1):
+                connection.execute(
+                    "UPDATE chapters SET position = ? WHERE id = ?",
+                    (len(parsed) + offset, row["id"]),
+                )
 
     def create_project(
         self,

@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 CHINESE_HEADING = re.compile(
     r"^\s*(第\s*[0-9零〇一二三四五六七八九十百千万两]+\s*"
-    r"[章回卷部篇](?:\s*[：:、.\-—]\s*|\s+)?[^\r\n]*)\s*$"
+    r"[章回卷部篇](?:(?:\s*[：:、.\-—]\s*|\s+)[^\r\n]*)?)\s*$"
 )
 MARKDOWN_HEADING = re.compile(r"^\s*#{1,6}\s+(.+?)\s*#*\s*$")
 ENGLISH_HEADING = re.compile(
