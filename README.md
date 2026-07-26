@@ -64,12 +64,19 @@ pip install -r requirements.txt
 
 ## 配置模型
 
-模型地址和 API Key 支持两种配置方式：
+模型名称、模型地址和 API Key 支持三种配置方式：
 
-1. 直接填写 `config.json` 中的 `model_server` 和 `api_key`
-2. 设置 `model_server_env`、`api_key_env` 所指向的环境变量
+1. 直接填写 `config.json` 中的 `model`、`model_server` 和 `api_key`
+2. 在 `config.json` 同目录的 `.env` 中填写变量
+3. 设置操作系统或当前进程的环境变量
 
-两种方式可以同时保留。非空环境变量的优先级高于 `config.json`；环境变量未设置或为空时，自动使用 JSON 中的值。
+三种方式可以同时保留，非空值的优先级为：
+
+```text
+系统环境变量 > .env > config.json
+```
+
+环境变量名称由 `model_env`、`model_server_env` 和 `api_key_env` 指定。某一层未设置或为空时，会自动使用下一层。
 
 直接填写 `config.json` 的示例：
 
@@ -78,6 +85,7 @@ pip install -r requirements.txt
   "model": "your-model",
   "model_server": "https://api.example.com/v1",
   "api_key": "your-api-key",
+  "model_env": "SUMMARY_MODEL",
   "model_server_env": "SUMMARY_MODEL_SERVER",
   "api_key_env": "SUMMARY_API_KEY"
 }
@@ -85,14 +93,24 @@ pip install -r requirements.txt
 
 `summary_bot` 和 `writing_bot` 都需要完成配置。直接填写真实 Key 时，不要把修改后的 `config.json` 提交到公共仓库。
 
-也可以复制 `.env.example` 中的变量，并通过终端、Docker、systemd 或其他密钥管理工具注入。应用不会自动读取 `.env` 文件。
+使用 `.env` 时，复制示例文件并填写真实值：
+
+```bash
+cp .env.example .env
+```
+
+应用启动时会自动读取与 `config.json` 同目录的 `.env`。该文件已被 `.gitignore` 排除。
+
+也可以通过终端、Docker、systemd 或其他密钥管理工具设置系统环境变量，其优先级最高。
 
 Linux/macOS 示例：
 
 ```bash
 export NOVEL_SECRET_KEY="随机生成的长字符串"
+export SUMMARY_MODEL="Qwen/Qwen3-30B-A3B-Instruct-2507"
 export SUMMARY_MODEL_SERVER="https://api.siliconflow.cn/v1"
 export SUMMARY_API_KEY="your-summary-key"
+export WRITING_MODEL="deepseek/deepseek-chat-v3.1:free"
 export WRITING_MODEL_SERVER="https://openrouter.ai/api/v1"
 export WRITING_API_KEY="your-writing-key"
 ```
@@ -101,8 +119,10 @@ Windows PowerShell 示例：
 
 ```powershell
 $env:NOVEL_SECRET_KEY="随机生成的长字符串"
+$env:SUMMARY_MODEL="Qwen/Qwen3-30B-A3B-Instruct-2507"
 $env:SUMMARY_MODEL_SERVER="https://api.siliconflow.cn/v1"
 $env:SUMMARY_API_KEY="your-summary-key"
+$env:WRITING_MODEL="deepseek/deepseek-chat-v3.1:free"
 $env:WRITING_MODEL_SERVER="https://openrouter.ai/api/v1"
 $env:WRITING_API_KEY="your-writing-key"
 ```

@@ -6,7 +6,9 @@ import json
 import os
 import secrets
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
+
+from dotenv import dotenv_values
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -17,26 +19,53 @@ def _resolve_path(value: str, base_dir: Path) -> str:
     return str(path if path.is_absolute() else base_dir / path)
 
 
-def _resolve_bot(bot_config: dict[str, Any]) -> dict[str, Any]:
-    """Resolve one bot, preferring non-empty environment values over JSON."""
+def _configured_value(
+    env_name: str,
+    dotenv_config: Mapping[str, str | None],
+    json_value: Any,
+) -> str:
+    """Resolve a non-empty value as environment > .env > config.json."""
+    environment_value = (
+        str(os.getenv(env_name, "") or "").strip() if env_name else ""
+    )
+    dotenv_value = (
+        str(dotenv_config.get(env_name, "") or "").strip() if env_name else ""
+    )
+    return environment_value or dotenv_value or str(json_value or "").strip()
+
+
+def _resolve_bot(
+    bot_config: dict[str, Any],
+    dotenv_config: Mapping[str, str | None],
+) -> dict[str, Any]:
+    """Resolve one bot using environment > .env > config.json."""
     resolved = dict(bot_config)
+    model_env = str(resolved.pop("model_env", "") or "").strip()
     server_env = str(resolved.pop("model_server_env", "") or "").strip()
     key_env = str(resolved.pop("api_key_env", "") or "").strip()
 
-    json_server = str(resolved.get("model_server", "") or "").strip()
-    json_key = str(resolved.get("api_key", "") or "").strip()
-    env_server = str(os.getenv(server_env, "") or "").strip() if server_env else ""
-    env_key = str(os.getenv(key_env, "") or "").strip() if key_env else ""
-
-    resolved["model_server"] = env_server or json_server
-    resolved["api_key"] = env_key or json_key
+    resolved["model"] = _configured_value(
+        model_env, dotenv_config, resolved.get("model")
+    )
+    resolved["model_server"] = _configured_value(
+        server_env, dotenv_config, resolved.get("model_server")
+    )
+    resolved["api_key"] = _configured_value(
+        key_env, dotenv_config, resolved.get("api_key")
+    )
     return resolved
 
 
-def _load_or_create_secret(data_dir: Path) -> str:
-    env_secret = os.getenv("NOVEL_SECRET_KEY")
-    if env_secret:
-        return env_secret
+def _load_or_create_secret(
+    data_dir: Path,
+    dotenv_config: Mapping[str, str | None],
+    json_secret: Any = "",
+) -> str:
+    configured_secret = _configured_value(
+        "NOVEL_SECRET_KEY", dotenv_config, json_secret
+    )
+    if configured_secret:
+        return configured_secret
 
     data_dir.mkdir(parents=True, exist_ok=True)
     secret_file = data_dir / ".secret_key"
@@ -60,12 +89,16 @@ def load_config(
     path = Path(config_path or os.getenv("NOVEL_CONFIG", BASE_DIR / "config.json"))
     with path.open("r", encoding="utf-8") as handle:
         config = json.load(handle)
+    dotenv_config = dotenv_values(
+        path.resolve().parent / ".env",
+        interpolate=False,
+    )
 
     if "llm_config" not in config or "app_config" not in config:
         raise ValueError("config.json 必须包含 llm_config 和 app_config")
 
     config["llm_config"] = {
-        name: _resolve_bot(bot)
+        name: _resolve_bot(bot, dotenv_config)
         for name, bot in config["llm_config"].items()
     }
     app_config = config["app_config"]
@@ -91,7 +124,11 @@ def load_config(
         app_config.update(overrides)
 
     data_dir = Path(app_config["database_path"]).parent
-    app_config["secret_key"] = _load_or_create_secret(data_dir)
+    app_config["secret_key"] = _load_or_create_secret(
+        data_dir,
+        dotenv_config,
+        app_config.get("secret_key", ""),
+    )
     return config
 
 

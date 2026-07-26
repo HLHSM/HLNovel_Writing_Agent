@@ -4,6 +4,7 @@
       "model": "Qwen/Qwen3-30B-A3B-Instruct-2507",
       "model_server": "",
       "api_key": "",
+      "model_env": "SUMMARY_MODEL",
       "model_server_env": "SUMMARY_MODEL_SERVER",
       "api_key_env": "SUMMARY_API_KEY",
       "generate_cfg": {
@@ -16,6 +17,7 @@
       "model": "deepseek/deepseek-chat-v3.1:free",
       "model_server": "",
       "api_key": "",
+      "model_env": "WRITING_MODEL",
       "model_server_env": "WRITING_MODEL_SERVER",
       "api_key_env": "WRITING_API_KEY",
       "generate_cfg": {
