@@ -64,7 +64,28 @@ pip install -r requirements.txt
 
 ## 配置模型
 
-复制 `.env.example` 中的变量，并通过系统环境变量设置真实值。应用不会从 `.env` 文件自动加载变量；可以由终端、Docker、systemd 或其他密钥管理工具注入。
+模型地址和 API Key 支持两种配置方式：
+
+1. 直接填写 `config.json` 中的 `model_server` 和 `api_key`
+2. 设置 `model_server_env`、`api_key_env` 所指向的环境变量
+
+两种方式可以同时保留。非空环境变量的优先级高于 `config.json`；环境变量未设置或为空时，自动使用 JSON 中的值。
+
+直接填写 `config.json` 的示例：
+
+```json
+{
+  "model": "your-model",
+  "model_server": "https://api.example.com/v1",
+  "api_key": "your-api-key",
+  "model_server_env": "SUMMARY_MODEL_SERVER",
+  "api_key_env": "SUMMARY_API_KEY"
+}
+```
+
+`summary_bot` 和 `writing_bot` 都需要完成配置。直接填写真实 Key 时，不要把修改后的 `config.json` 提交到公共仓库。
+
+也可以复制 `.env.example` 中的变量，并通过终端、Docker、systemd 或其他密钥管理工具注入。应用不会自动读取 `.env` 文件。
 
 Linux/macOS 示例：
 
