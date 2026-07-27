@@ -828,15 +828,19 @@
         }
 
         .send-button {
-            display: grid;
+            display: inline-flex;
             flex: 0 0 auto;
-            place-items: center;
-            width: 34px;
+            align-items: center;
+            justify-content: center;
+            min-width: 112px;
             height: 34px;
-            padding: 0;
+            padding: 0 14px;
             color: var(--button-text);
             background: var(--button);
-            border-radius: 50%;
+            border-radius: 12px;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
         }
 
         .composer-note {
@@ -1028,6 +1032,21 @@
                 width: 68px;
             }
         }
+
+        @media (max-width: 420px) {
+            .composer-toolbar {
+                align-items: stretch;
+                flex-direction: column;
+            }
+
+            .composer-options {
+                justify-content: space-between;
+            }
+
+            .send-button {
+                width: 100%;
+            }
+        }
     </style>
 </head>
 <body>
@@ -1191,9 +1210,9 @@
 
             <footer class="composer-area" id="composer-area" hidden>
                 <div class="composer">
-                    <label class="sr-only" for="instruction-input">本次续写要求</label>
+                    <label class="sr-only" for="instruction-input">本次写作要求</label>
                     <textarea id="instruction-input" rows="1"
-                              placeholder="输入续写要求，或选择章节后作为 AI 重写要求"></textarea>
+                              placeholder="输入写作要求；点击右侧按钮将续写下一章"></textarea>
                     <div class="composer-toolbar">
                         <div class="composer-options">
                             <select class="compact-select" id="composer-mode" aria-label="写作模式">
@@ -1203,17 +1222,17 @@
                             <label class="sr-only" for="composer-word-limit">目标字数</label>
                             <input class="compact-input" id="composer-word-limit" type="number"
                                    value="1000" min="100" max="10000" aria-label="目标字数">
-                            <button class="tool-button" id="regenerate-btn" type="button" onclick="restartWriting()">
-                                重写本章
-                            </button>
                         </div>
                         <button class="send-button" id="continue-btn" type="button"
-                                onclick="continueWriting()" aria-label="生成下一章">
-                            ↑
+                                onclick="continueWriting()" aria-label="续写下一章">
+                            续写下一章 →
                         </button>
                     </div>
                 </div>
-                <div class="composer-note">Ctrl / ⌘ + Enter 生成下一章 · 编辑后保存会创建独立版本</div>
+                <div class="composer-note">
+                    底部按钮始终追加下一章；重写当前章节请使用正文下方的“按要求 AI 重写本章”
+                    · Ctrl / ⌘ + Enter 续写下一章
+                </div>
             </footer>
         </section>
     </div>
@@ -1234,7 +1253,7 @@
         function setBusy(value) {
             busy = value;
             [
-                "start-btn", "continue-btn", "regenerate-btn", "delete-btn",
+                "start-btn", "continue-btn", "delete-btn",
                 "new-chapter-btn", "save-chapter-btn", "generate-chapter-btn",
                 "delete-chapter-btn"
             ].forEach(id => {
@@ -1246,11 +1265,11 @@
                 if (element) element.disabled = value;
             });
             if (value) {
-                $("continue-btn").textContent = "■";
+                $("continue-btn").textContent = "生成中…";
                 $("continue-btn").setAttribute("aria-label", "正在生成");
             } else {
-                $("continue-btn").textContent = "↑";
-                $("continue-btn").setAttribute("aria-label", "继续续写");
+                $("continue-btn").textContent = "续写下一章 →";
+                $("continue-btn").setAttribute("aria-label", "续写下一章");
             }
         }
 
@@ -1542,7 +1561,6 @@
                 `${chapter.kind === "source" ? "原文章节" : "续写章节"} · v${active.version || 1} · ${$("chapter-content").value.length.toLocaleString()} 字`;
             $("delete-chapter-btn").hidden = chapter.kind === "source";
             $("generate-chapter-btn").disabled = busy;
-            $("regenerate-btn").disabled = busy;
 
             const analysis = $("chapter-analysis");
             analysis.replaceChildren();

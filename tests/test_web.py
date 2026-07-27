@@ -20,6 +20,12 @@ def test_index_has_responsive_chat_workspace(client):
     assert 'id="chapter-select"' in html
     assert 'id="chapter-content"' in html
     assert 'id="save-chapter-btn"' in html
+    assert 'id="generate-chapter-btn"' in html
+    assert 'onclick="restartWriting()">按要求 AI 重写本章' in html
+    assert 'id="regenerate-btn"' not in html
+    assert 'onclick="continueWriting()" aria-label="续写下一章"' in html
+    assert "续写下一章 →" in html
+    assert "底部按钮始终追加下一章" in html
 
 
 def test_manual_chapter_edit_creates_a_restorable_version(client):
