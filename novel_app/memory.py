@@ -87,6 +87,7 @@ style_profile（视角、语言、节奏、对话和描写特点）。
             self.gateway.call(
                 "summary_bot",
                 self._summary_prompt(chunk, f"第 {index + 1}/{len(chunks)} 个分块"),
+                operation="memory_chunk_summary",
             )
             for index, chunk in enumerate(chunks)
         ]
@@ -105,7 +106,13 @@ style_profile（视角、语言、节奏、对话和描写特点）。
 
 {merged_input}
 """.strip()
-        return parse_memory(self.gateway.call("summary_bot", merge_prompt))
+        return parse_memory(
+            self.gateway.call(
+                "summary_bot",
+                merge_prompt,
+                operation="memory_merge",
+            )
+        )
 
     def update_memory(
         self, memory: dict[str, Any], new_segment: str
@@ -121,7 +128,13 @@ style_profile（视角、语言、节奏、对话和描写特点）。
 新段落：
 {new_segment}
 """.strip()
-        return parse_memory(self.gateway.call("summary_bot", prompt))
+        return parse_memory(
+            self.gateway.call(
+                "summary_bot",
+                prompt,
+                operation="memory_update",
+            )
+        )
 
     def context_for(
         self,
@@ -189,4 +202,8 @@ style_profile（视角、语言、节奏、对话和描写特点）。
 新续写：
 {segment}
 """.strip()
-        return self.gateway.call("summary_bot", prompt)
+        return self.gateway.call(
+            "summary_bot",
+            prompt,
+            operation="consistency_check",
+        )

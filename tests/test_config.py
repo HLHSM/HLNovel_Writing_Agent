@@ -64,7 +64,30 @@ def test_direct_json_model_configuration_is_supported(tmp_path, monkeypatch):
     assert summary["model"] == "summary-model"
     assert summary["model_server"] == "https://json.example/v1"
     assert summary["api_key"] == "json-key"
+    assert summary["generate_cfg"]["request_timeout"] == 120
+    assert (
+        config["llm_config"]["writing_bot"]["generate_cfg"]["request_timeout"]
+        == 120
+    )
     assert config["app_config"]["secret_key"] == "json-secret"
+
+
+def test_explicit_request_timeout_is_preserved(tmp_path, monkeypatch):
+    config_path = tmp_path / "config.json"
+    write_config(config_path)
+    raw = json.loads(config_path.read_text(encoding="utf-8"))
+    raw["llm_config"]["writing_bot"]["generate_cfg"] = {
+        "request_timeout": 45
+    }
+    config_path.write_text(json.dumps(raw), encoding="utf-8")
+    monkeypatch.delenv("NOVEL_SECRET_KEY", raising=False)
+
+    config = load_config(config_path)
+
+    assert (
+        config["llm_config"]["writing_bot"]["generate_cfg"]["request_timeout"]
+        == 45
+    )
 
 
 def test_dotenv_values_override_json(tmp_path, monkeypatch):

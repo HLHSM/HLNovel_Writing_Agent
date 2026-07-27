@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Development entrypoint for the novel writing application."""
 
+import logging
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+)
+
 from novel_app import create_app
 
 

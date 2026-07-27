@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import io
+import logging
 
 from .conftest import consume_stream, create_project
 
@@ -104,6 +105,46 @@ def test_continued_chapter_title_has_suffix(client):
     )
 
     assert continued["title"].endswith("(续写)")
+
+
+def test_second_continuation_completes_and_logs_each_phase(client, app, caplog):
+    caplog.set_level(logging.INFO)
+    writing = app.extensions["fake_writing"]
+    writing.writing_outputs = ["第一章续写正文", "第二章续写正文"]
+    project_id = create_project(client, writing_mode="standard")
+
+    first_stream = consume_stream(client, f"/stream/{project_id}")
+    second_stream = consume_stream(client, f"/continue/{project_id}")
+
+    assert '"type": "complete"' in first_stream
+    assert '"type": "complete"' in second_stream
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+    drafts = [
+        chapter for chapter in project["chapters"] if chapter["kind"] == "draft"
+    ]
+    assert [chapter["active_version"]["content"] for chapter in drafts] == [
+        "第一章续写正文",
+        "第二章续写正文",
+    ]
+    assert all(chapter["title"].endswith("(续写)") for chapter in drafts)
+    messages = "\n".join(record.getMessage() for record in caplog.records)
+    assert "Generation started" in messages
+    assert "Planning completed" in messages
+    assert "Writing completed" in messages
+    assert "project lock released" in messages
+
+
+def test_planning_failure_falls_back_to_direct_writing(client, app):
+    writing = app.extensions["fake_writing"]
+    writing.fail_next_plan = True
+    project_id = create_project(client, writing_mode="standard")
+
+    stream = consume_stream(client, f"/stream/{project_id}")
+
+    assert "已自动跳过规划并继续生成正文" in stream
+    assert '"type": "complete"' in stream
+    project = client.get(f"/api/projects/{project_id}").get_json()["project"]
+    assert project["active_generations"][0]["content"] == "林舟握紧钥匙，推开了门。"
 
 
 def test_restore_rebuilds_memory_from_only_active_versions(client, app):

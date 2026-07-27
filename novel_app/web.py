@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import logging
 import threading
+import time
 import uuid
 from pathlib import Path
 from typing import Any
@@ -24,6 +26,9 @@ from .database import NovelDatabase
 from .llm import AgentGateway
 from .memory import MemoryManager
 from .service import NovelService
+
+
+logger = logging.getLogger(__name__)
 
 
 def _load_prompts() -> dict[str, str]:
@@ -181,16 +186,57 @@ def create_app(
         @stream_with_context
         def generate():
             if not project_lock.acquire(blocking=False):
+                logger.warning(
+                    "SSE generation rejected: project lock busy | "
+                    "project=%s action=%s chapter=%s",
+                    project_id,
+                    action,
+                    chapter_id or "append",
+                )
                 event = {"type": "error", "content": "该项目已有生成任务正在运行"}
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
                 return
+            started_at = time.monotonic()
+            logger.info(
+                "SSE generation connected | project=%s action=%s chapter=%s",
+                project_id,
+                action,
+                chapter_id or "append",
+            )
             try:
                 for event in service.generate(
                     project_id, owner, action, chapter_id=chapter_id
                 ):
                     yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+            except GeneratorExit:
+                logger.warning(
+                    "SSE client disconnected | project=%s action=%s "
+                    "elapsed=%.2fs",
+                    project_id,
+                    action,
+                    time.monotonic() - started_at,
+                )
+                raise
+            except Exception:
+                logger.exception(
+                    "Unexpected SSE generation failure | project=%s action=%s",
+                    project_id,
+                    action,
+                )
+                event = {
+                    "type": "error",
+                    "content": "生成连接发生异常，请查看服务端控制台日志",
+                }
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
             finally:
                 project_lock.release()
+                logger.info(
+                    "SSE generation closed; project lock released | "
+                    "project=%s action=%s elapsed=%.2fs",
+                    project_id,
+                    action,
+                    time.monotonic() - started_at,
+                )
 
         return Response(
             generate(),

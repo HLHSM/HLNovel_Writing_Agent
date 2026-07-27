@@ -28,6 +28,7 @@ class SmartFakeAgent:
         self.calls: list[str] = []
         self.writing_outputs: list[str] = []
         self.fail_next_draft = False
+        self.fail_next_plan = False
 
     def run(self, messages):
         prompt = messages[-1]["content"]
@@ -38,6 +39,9 @@ class SmartFakeAgent:
             else:
                 output = MEMORY_RESPONSE
         elif "拟定一个简短" in prompt:
+            if self.fail_next_plan:
+                self.fail_next_plan = False
+                raise RuntimeError("模拟规划服务超时")
             output = "承接门前场景，让主角发现新线索。"
         else:
             if self.fail_next_draft:

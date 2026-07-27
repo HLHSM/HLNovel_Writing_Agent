@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import json
+import logging
+import time
+import uuid
 from collections.abc import Iterator
 from typing import Any
 
 from .database import NovelDatabase
 from .llm import AgentGateway
 from .memory import MemoryManager
+
+
+logger = logging.getLogger(__name__)
 
 
 class NovelService:
@@ -63,7 +69,12 @@ class NovelService:
         return rebuilt
 
     def _plan(
-        self, context: str, requirements: str, word_limit: int, chapter_title: str
+        self,
+        context: str,
+        requirements: str,
+        word_limit: int,
+        chapter_title: str,
+        task_id: str,
     ) -> str:
         prompt = f"""
 为小说章节《{chapter_title}》拟定一个简短、可执行的写作计划，包含：
@@ -76,7 +87,12 @@ class NovelService:
 额外要求：{requirements or "无"}
 目标字数：约 {word_limit} 字
 """.strip()
-        return self.gateway.call("writing_bot", prompt)
+        return self.gateway.call(
+            "writing_bot",
+            prompt,
+            operation="chapter_plan",
+            task_id=task_id,
+        )
 
     @staticmethod
     def _writing_prompt(
@@ -137,14 +153,41 @@ class NovelService:
         action: str,
         chapter_id: str | None = None,
     ) -> Iterator[dict[str, Any]]:
+        task_id = uuid.uuid4().hex[:8]
+        started_at = time.monotonic()
         project = self.database.get_project(project_id, owner_token)
         if not project:
+            logger.warning(
+                "Generation rejected | task=%s project=%s reason=not_found",
+                task_id,
+                project_id,
+            )
             yield {"type": "error", "content": "项目不存在或无权访问"}
             return
 
         chapters = self.database.list_chapters(project_id)
-        draft_chapters = [chapter for chapter in chapters if chapter["kind"] != "source"]
+        draft_chapters = [
+            chapter for chapter in chapters if chapter["kind"] != "source"
+        ]
+        logger.info(
+            "Generation started | task=%s project=%s action=%s chapter_id=%s "
+            "mode=%s word_limit=%s chapters=%d drafts=%d",
+            task_id,
+            project_id,
+            action,
+            chapter_id or "append",
+            project["writing_mode"],
+            project["word_limit"],
+            len(chapters),
+            len(draft_chapters),
+        )
         if action == "initial" and draft_chapters:
+            logger.warning(
+                "Generation rejected | task=%s project=%s "
+                "reason=initial_already_completed",
+                task_id,
+                project_id,
+            )
             yield {"type": "error", "content": "初次续写已经完成，请使用继续续写"}
             return
 
@@ -168,6 +211,15 @@ class NovelService:
             if target
             else f"第 {len(chapters) + 1} 章(续写)"
         )
+        logger.info(
+            "Generation context selected | task=%s title=%s "
+            "prefix_chapters=%d prefix_chars=%d target=%s",
+            task_id,
+            chapter_title,
+            len(prefix_chapters),
+            len(prefix_text),
+            target["id"] if target else "new",
+        )
 
         try:
             memory_before = None
@@ -188,15 +240,52 @@ class NovelService:
                     "\n\n【待重写章节原文】\n"
                     + self._chapter_content(target)
                 )
+            logger.info(
+                "Generation context ready | task=%s context_chars=%d "
+                "memory=%s requirements_chars=%d",
+                task_id,
+                len(context),
+                "yes" if memory_before else "no",
+                len(project["requirements"]),
+            )
             plan = ""
             if project["writing_mode"] == "standard":
                 yield {"type": "status", "content": "正在规划本段情节（章节级）…"}
-                plan = self._plan(
-                    context,
-                    project["requirements"],
-                    project["word_limit"],
+                phase_started = time.monotonic()
+                logger.info(
+                    "Planning started | task=%s title=%s",
+                    task_id,
                     chapter_title,
                 )
+                try:
+                    plan = self._plan(
+                        context,
+                        project["requirements"],
+                        project["word_limit"],
+                        chapter_title,
+                        task_id,
+                    )
+                    logger.info(
+                        "Planning completed | task=%s duration=%.2fs "
+                        "plan_chars=%d",
+                        task_id,
+                        time.monotonic() - phase_started,
+                        len(plan),
+                    )
+                except Exception as exc:
+                    logger.exception(
+                        "Planning failed; continuing without plan | "
+                        "task=%s duration=%.2fs",
+                        task_id,
+                        time.monotonic() - phase_started,
+                    )
+                    yield {
+                        "type": "status",
+                        "content": (
+                            f"章节规划未完成（{exc}），"
+                            "已自动跳过规划并继续生成正文…"
+                        ),
+                    }
 
             yield {"type": "status", "content": f"正在生成《{chapter_title}》…"}
             prompt = self._writing_prompt(
@@ -206,13 +295,30 @@ class NovelService:
                 plan,
                 chapter_title,
             )
+            logger.info(
+                "Writing started | task=%s title=%s prompt_chars=%d",
+                task_id,
+                chapter_title,
+                len(prompt),
+            )
             chunks: list[str] = []
-            for chunk in self.gateway.stream("writing_bot", prompt):
+            for chunk in self.gateway.stream(
+                "writing_bot",
+                prompt,
+                operation="chapter_writing",
+                task_id=task_id,
+            ):
                 chunks.append(chunk)
                 yield {"type": "content", "content": chunk}
             content = "".join(chunks).strip()
             if not content:
                 raise RuntimeError("写作模型返回了空内容")
+            logger.info(
+                "Writing completed | task=%s content_chars=%d elapsed=%.2fs",
+                task_id,
+                len(content),
+                time.monotonic() - started_at,
+            )
 
             consistency_report = ""
             if project["writing_mode"] == "standard":
@@ -222,6 +328,10 @@ class NovelService:
                         memory_before, content
                     )
                 except Exception as exc:
+                    logger.exception(
+                        "Consistency check failed | task=%s",
+                        task_id,
+                    )
                     consistency_report = f"一致性检查未完成：{exc}"
 
             try:
@@ -229,6 +339,10 @@ class NovelService:
                     memory_before, prefix_text, content
                 )
             except Exception:
+                logger.exception(
+                    "Memory update failed; saving chapter without memory | task=%s",
+                    task_id,
+                )
                 memory_after = None
 
             if target:
@@ -279,6 +393,14 @@ class NovelService:
 
             if consistency_report:
                 yield {"type": "review", "content": consistency_report}
+            logger.info(
+                "Generation completed | task=%s project=%s chapter=%s "
+                "duration=%.2fs",
+                task_id,
+                project_id,
+                saved_chapter_id,
+                time.monotonic() - started_at,
+            )
             yield {
                 "type": "complete",
                 "content": "章节生成完成",
@@ -286,6 +408,14 @@ class NovelService:
                 "chapter_id": saved_chapter_id,
             }
         except Exception as exc:
+            logger.exception(
+                "Generation failed | task=%s project=%s action=%s "
+                "duration=%.2fs",
+                task_id,
+                project_id,
+                action,
+                time.monotonic() - started_at,
+            )
             yield {"type": "error", "content": f"生成失败：{exc}"}
 
     def create_manual_chapter(

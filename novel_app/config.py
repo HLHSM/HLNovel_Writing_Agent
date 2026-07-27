@@ -53,6 +53,12 @@ def _resolve_bot(
     resolved["api_key"] = _configured_value(
         key_env, dotenv_config, resolved.get("api_key")
     )
+    generate_cfg = dict(resolved.get("generate_cfg") or {})
+    # Qwen-Agent forwards request_timeout to the OpenAI-compatible client.
+    # Without it, a provider connection that stops responding can leave an
+    # SSE generation request waiting for many minutes with no actionable error.
+    generate_cfg.setdefault("request_timeout", 120)
+    resolved["generate_cfg"] = generate_cfg
     return resolved
 
 
